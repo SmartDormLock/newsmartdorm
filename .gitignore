@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual env
+envs/
+
+# Data (optional kalau besar)
+data/face/dataset/
+*.pkl
+
+# OS
+.DS_Store
+
+# Logs
+*.log
