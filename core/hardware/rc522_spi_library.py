@@ -8,7 +8,7 @@ import time
 import logging
 
 try:
-    import gpiod
+    import lgpio
     import spidev
 except ImportError:
     print("Important Note: The hardware libraries 'gpiod' and 'spidev' could not be imported.")
@@ -97,8 +97,8 @@ class RC522SPILibrary:
         if debug:
             self.logger.setLevel(logging.DEBUG)
         
-        if not spidev or not gpiod:
-            raise RC522CommunicationError("The hardware libraries 'spidev' and 'gpiod' are not available.")
+        if not spidev:
+            raise RC522CommunicationError("spidev not available")
 
         self.spi = spidev.SpiDev()
         self.spi.open(spi_bus, spi_device)
@@ -108,9 +108,8 @@ class RC522SPILibrary:
         # GPIO setup for the reset pin using gpiod
         try:
             self.rst_pin = rst_pin
-            self.gpio_chip = gpiod.Chip('/dev/gpiochip0')
-            self.rst_line = self.gpio_chip.get_line(self.rst_pin)
-            self.rst_line.request(consumer="RC522_RST", type=gpiod.LINE_REQ_DIR_OUT)
+            self.gpio_handle = lgpio.gpiochip_open(0)
+            lgpio.gpio_claim_output(self.gpio_handle, self.rst_pin)
         except Exception as e:
             raise RC522CommunicationError(f"Error initializing GPIO pin via gpiod: {e}")
 
@@ -139,9 +138,9 @@ class RC522SPILibrary:
 
     def _reset(self):
         """Performs a hardware reset of the RC522."""
-        self.rst_line.set_value(0)
+        lgpio.gpio_write(self.gpio_handle, self.rst_pin, 0)
         time.sleep(0.05)
-        self.rst_line.set_value(1)
+        lgpio.gpio_write(self.gpio_handle, self.rst_pin, 1)
         time.sleep(0.05)
 
     def initialize(self):
@@ -168,11 +167,15 @@ class RC522SPILibrary:
         """Resets the RC522 and releases resources."""
         if self._initialized:
             self._reset()
-        if hasattr(self, 'rst_line') and self.rst_line:
-            self.rst_line.release()
-        if hasattr(self, 'gpio_chip') and self.gpio_chip:
-            self.rst_line.release()
-        self.spi.close()
+
+        # tutup SPI
+        if hasattr(self, 'spi') and self.spi:
+            self.spi.close()
+
+        # tutup GPIO lgpio
+        if hasattr(self, 'gpio_handle'):
+            lgpio.gpiochip_close(self.gpio_handle)
+
         self.logger.info("RC522 resources have been released.")
 
     def _communicate_with_card(self, command, send_data, timeout=0.1):
