@@ -5,10 +5,13 @@ from core.auth.fingerprint_auth import scan_fingerprint
 from core.auth.rfid_auth import scan_rfid
 from core.hardware.relay import open_door
 from core.hardware.lcd import lcd_write
+from core.auth.master_user import load_master_users
 
 
 MAX_ATTEMPT = 3
 FACE_PY = "/home/raspi5/newsmartdorm/envs/face_env/bin/python"
+
+master_users = load_master_users()
 
 
 # ================= SAFE LCD =================
@@ -25,7 +28,7 @@ def door_sequence(name):
 
     open_door()
 
-    time.sleep(0.5)  # 🔥 penting buat stabilin I2C
+    time.sleep(0.5)
 
     safe_lcd("DOOR LOCKED", "", "Ready...")
     time.sleep(2)
@@ -76,13 +79,13 @@ def rfid_verify():
             print(f"✅ RFID valid: {result}")
             safe_lcd("RFID OK", str(result), "")
             time.sleep(1)
-            return True
+            return result   # 🔥 sekarang return nama user
         else:
             print(f"❌ RFID gagal ({attempt}/{MAX_ATTEMPT})")
             safe_lcd("RFID FAILED", "", f"{attempt}/{MAX_ATTEMPT}")
             time.sleep(1)
 
-    return False
+    return None
 
 
 # ================= MODE FACE =================
@@ -98,11 +101,32 @@ def mode_face():
             safe_lcd("FACE OK", f"Hello {result}", "Scan RFID...")
             time.sleep(1)
 
-            if rfid_verify():
-                door_sequence(result)
-                return True
+            # 🔥 RFID dilakukan setelah face berhasil
+            rfid_name = rfid_verify()
+
+            if rfid_name:
+                print(f"📡 RFID terbaca: {rfid_name}")
+
+                if result in master_users:
+                    # sementara pakai nama (biar gak ubah struktur lain)
+                    if rfid_name == result:
+                        print("🔐 MATCH: Face & RFID sesuai")
+                        door_sequence(result)
+                        return True
+                    else:
+                        print("🚫 MISMATCH: Face != RFID")
+                        safe_lcd("ACCESS DENIED", "Mismatch!", "")
+                        time.sleep(2)
+                        return False
+                else:
+                    print("🚫 User tidak ada di master")
+                    safe_lcd("UNKNOWN USER", "", "")
+                    time.sleep(2)
+                    return False
+
             else:
-                safe_lcd("RFID FAILED", "", "Back")
+                print("❌ RFID gagal")
+                safe_lcd("RFID FAILED", "", "")
                 time.sleep(2)
                 return False
 
@@ -129,11 +153,14 @@ def mode_fingerprint():
             safe_lcd("FINGER OK", str(result), "Scan RFID...")
             time.sleep(1)
 
-            if rfid_verify():
+            rfid_name = rfid_verify()
+
+            if rfid_name and rfid_name == result:
                 door_sequence(result)
                 return True
             else:
-                safe_lcd("RFID FAILED", "", "Back")
+                print("🚫 MISMATCH Fingerprint & RFID")
+                safe_lcd("ACCESS DENIED", "Mismatch!", "")
                 time.sleep(2)
                 return False
 

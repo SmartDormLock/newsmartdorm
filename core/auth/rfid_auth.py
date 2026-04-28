@@ -46,7 +46,10 @@ def scan_rfid():
     print(f"UID: {uid_str}")
 
     if uid_str in cards:
-        return cards[uid_str]
+         return {
+            "name": cards[uid_str],
+            "uid": uid_str
+        }
 
     return None
 

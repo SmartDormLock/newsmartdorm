@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import pickle
 import cv2
+import time
 from PIL import Image
 from facenet_pytorch import MTCNN, InceptionResnetV1
 
@@ -20,9 +21,12 @@ def scan_face():
     print("?? Scan wajah...")
 
     success_counter = 0
-    REQUIRED_SUCCESS = 5
+    REQUIRED_SUCCESS = 7
+    FRAME_DELAY = 0.2  # lebih santai  # ?? delay per frame biar gak terlalu cepat
 
     while True:
+        start_time = time.time()
+
         ret, frame = cap.read()
         if not ret:
             continue
@@ -70,9 +74,9 @@ def scan_face():
                 cv2.putText(frame, label, (x1, y1 - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-        # status
+        # status verifikasi
         cv2.putText(frame, f"Verifying... ({success_counter}/{REQUIRED_SUCCESS})",
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,0), 2)
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
         cv2.imshow("Face Recognition", frame)
 
@@ -84,6 +88,11 @@ def scan_face():
 
         if cv2.waitKey(1) & 0xFF == 27:
             break
+
+        # ?? adaptive delay (biar smooth, gak nge-lag)
+        elapsed = time.time() - start_time
+        if elapsed < FRAME_DELAY:
+            time.sleep(FRAME_DELAY - elapsed)
 
     cap.release()
     cv2.destroyAllWindows()

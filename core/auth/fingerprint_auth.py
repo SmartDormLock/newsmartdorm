@@ -59,6 +59,9 @@ def scan_fingerprint():
     print(f"ID: {fid} | Confidence: {confidence}")
 
     if fid in users:
-        return users[fid]
-
+        return {
+            "name": users[fid],
+            "fid": fid
+        }
+        
     return f"ID_{fid}"
