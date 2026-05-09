@@ -3,7 +3,6 @@ import sys
 import time
 
 # ================= MODE DETECTION =================
-# default: standalone
 USE_RELAY = True
 
 # kalau dipanggil dari unified ? pakai flag --no-relay
@@ -12,33 +11,36 @@ if "--no-relay" in sys.argv:
 
 # optional relay
 open_door = None
+
 if USE_RELAY:
     try:
         from core.hardware.relay import open_door
+
     except Exception:
         open_door = None
 
-MAX_ATTEMPT = 3
 
 print("\n=== SCAN FACE ===")
 
-attempt = 0
+# ================= SINGLE FACE SESSION =================
+result = scan_face()
 
-while attempt < MAX_ATTEMPT:
-    result = scan_face()
+# ================= SUCCESS =================
+if result:
 
-    if result:
-        print(f"?? Akses: {result}")
+    print(f"? Akses: {result}")
 
-        # hanya standalone yang buka pintu
-        if open_door:
-            open_door()
+    # standalone mode buka pintu langsung
+    if open_door:
+        open_door()
 
-        sys.exit(0)
-    else:
-        attempt += 1
-        print(f"? Gagal ({attempt}/{MAX_ATTEMPT})")
+    sys.exit(0)
 
-print("? Akses ditolak")
-time.sleep(2)
-sys.exit(1)
+# ================= FAILED =================
+else:
+
+    print("? Akses ditolak")
+
+    time.sleep(1)
+
+    sys.exit(1)
