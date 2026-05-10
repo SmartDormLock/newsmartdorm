@@ -14,17 +14,6 @@ from core.hardware.buzzer import (
     scan_beep
 )
 
-# ================= LOGGER =================
-from core.utils.logger import (
-    log_system,
-    log_error,
-    log_face,
-    log_rfid,
-    log_fingerprint,
-    log_auth,
-    log_access
-)
-
 from core.auth.master_user import load_master_users
 
 
@@ -42,8 +31,6 @@ def safe_lcd(*args):
     except Exception as e:
 
         print("⚠️ LCD skip:", e)
-
-        log_error(f"LCD ERROR: {e}")
 
 
 # ================= EXTRACT NAME =================
@@ -139,8 +126,6 @@ def scan_face_external(attempt):
 
         print("❌ Face error:", e)
 
-        log_error(f"FACE ERROR: {e}")
-
     return None
 
 
@@ -168,13 +153,6 @@ def rfid_verify():
 
             print(f"✅ RFID valid: {rfid_name}")
 
-            # ================= LOGGER =================
-            log_rfid(
-                uid="UNKNOWN",
-                user=rfid_name,
-                status="SUCCESS"
-            )
-
             safe_lcd(
                 "RFID OK",
                 str(rfid_name),
@@ -190,12 +168,6 @@ def rfid_verify():
             print(
                 f"❌ RFID gagal "
                 f"({attempt}/{MAX_ATTEMPT})"
-            )
-
-            # ================= LOGGER =================
-            log_rfid(
-                uid="UNKNOWN",
-                status="FAILED"
             )
 
             safe_lcd(
@@ -224,12 +196,6 @@ def mode_face():
 
             print(f"🎉 Face dikenali: {result}")
 
-            # ================= LOGGER =================
-            log_face(
-                result,
-                status="SUCCESS"
-            )
-
             safe_lcd(
                 "FACE OK",
                 f"Hello {result}",
@@ -255,19 +221,6 @@ def mode_face():
                             "Face & RFID sesuai"
                         )
 
-                        # ================= LOGGER =================
-                        log_auth(
-                            result,
-                            "FACE+RFID",
-                            "GRANTED"
-                        )
-
-                        log_access(
-                            result,
-                            "SUCCESS",
-                            "FACE+RFID"
-                        )
-
                         door_sequence(result)
 
                         return True
@@ -277,13 +230,6 @@ def mode_face():
                         print(
                             "🚫 MISMATCH: "
                             "Face != RFID"
-                        )
-
-                        # ================= LOGGER =================
-                        log_auth(
-                            result,
-                            "FACE+RFID",
-                            "MISMATCH"
                         )
 
                         # ================= WARNING BEEP =================
@@ -309,13 +255,6 @@ def mode_face():
                         "di master"
                     )
 
-                    # ================= LOGGER =================
-                    log_auth(
-                        result,
-                        "FACE+RFID",
-                        "UNKNOWN_USER"
-                    )
-
                     # ================= ERROR BEEP =================
                     error_beep()
 
@@ -333,13 +272,6 @@ def mode_face():
             else:
 
                 print("❌ RFID gagal")
-
-                # ================= LOGGER =================
-                log_auth(
-                    result,
-                    "FACE+RFID",
-                    "RFID_FAILED"
-                )
 
                 # ================= WARNING BEEP =================
                 warning_beep()
@@ -363,12 +295,6 @@ def mode_face():
             print(
                 f"❌ Face gagal "
                 f"({attempt}/{MAX_ATTEMPT})"
-            )
-
-            # ================= LOGGER =================
-            log_face(
-                "UNKNOWN",
-                status="FAILED"
             )
 
             remaining = (
@@ -414,13 +340,6 @@ def mode_fingerprint(expected_user=None):
             # ================= FIX NAME EXTRACTION =================
             finger_name = extract_name(result)
 
-            # ================= LOGGER =================
-            log_fingerprint(
-                fid="UNKNOWN",
-                user=finger_name,
-                status="SUCCESS"
-            )
-
             # ================= CONTEXTUAL CHECK =================
             if expected_user:
 
@@ -429,13 +348,6 @@ def mode_fingerprint(expected_user=None):
                     print(
                         "🚫 Fingerprint "
                         "bukan user yang sama"
-                    )
-
-                    # ================= LOGGER =================
-                    log_auth(
-                        finger_name,
-                        "FINGER+RFID",
-                        "MISMATCH"
                     )
 
                     # ================= WARNING BEEP =================
@@ -470,19 +382,6 @@ def mode_fingerprint(expected_user=None):
                         "Fingerprint & RFID sesuai"
                     )
 
-                    # ================= LOGGER =================
-                    log_auth(
-                        finger_name,
-                        "FINGER+RFID",
-                        "GRANTED"
-                    )
-
-                    log_access(
-                        finger_name,
-                        "SUCCESS",
-                        "FINGER+RFID"
-                    )
-
                     door_sequence(
                         finger_name
                     )
@@ -494,13 +393,6 @@ def mode_fingerprint(expected_user=None):
                     print(
                         "🚫 MISMATCH "
                         "Fingerprint & RFID"
-                    )
-
-                    # ================= LOGGER =================
-                    log_auth(
-                        finger_name,
-                        "FINGER+RFID",
-                        "MISMATCH"
                     )
 
                     # ================= WARNING BEEP =================
@@ -519,13 +411,6 @@ def mode_fingerprint(expected_user=None):
             else:
 
                 print("❌ RFID gagal")
-
-                # ================= LOGGER =================
-                log_auth(
-                    finger_name,
-                    "FINGER+RFID",
-                    "RFID_FAILED"
-                )
 
                 # ================= WARNING BEEP =================
                 warning_beep()
@@ -547,12 +432,6 @@ def mode_fingerprint(expected_user=None):
                 f"({attempt}/{MAX_ATTEMPT})"
             )
 
-            # ================= LOGGER =================
-            log_fingerprint(
-                fid="UNKNOWN",
-                status="FAILED"
-            )
-
             safe_lcd(
                 "FINGER FAILED",
                 "",
@@ -568,11 +447,6 @@ def mode_fingerprint(expected_user=None):
 def main():
 
     print("\n🔐 SMART DOOR SYSTEM STARTED")
-
-    # ================= LOGGER =================
-    log_system(
-        "Unified authentication started"
-    )
 
     safe_lcd(
         "SYSTEM READY",
@@ -607,11 +481,6 @@ def main():
                 f"untuk {expected_user}"
             )
 
-            # ================= LOGGER =================
-            log_system(
-                f"Fallback fingerprint for {expected_user}"
-            )
-
             # ================= WARNING BEEP =================
             warning_beep()
 
@@ -640,13 +509,6 @@ def main():
             # ================= FAILED =================
             print("\n⛔ AKSES DITOLAK")
 
-            # ================= LOGGER =================
-            log_auth(
-                expected_user,
-                "FINGER+RFID",
-                "DENIED"
-            )
-
             # ================= ERROR BEEP =================
             error_beep()
 
@@ -662,11 +524,6 @@ def main():
 
     # ================= GLOBAL FALLBACK =================
     print("\n⚠️ Face gagal total")
-
-    # ================= LOGGER =================
-    log_system(
-        "Face failed total, fallback fingerprint"
-    )
 
     # ================= WARNING BEEP =================
     warning_beep()
@@ -685,13 +542,6 @@ def main():
 
     # ================= TOTAL FAILED =================
     print("\n⛔ AKSES DITOLAK TOTAL")
-
-    # ================= LOGGER =================
-    log_auth(
-        "UNKNOWN",
-        "GLOBAL",
-        "DENIED"
-    )
 
     # ================= ERROR BEEP =================
     error_beep()
