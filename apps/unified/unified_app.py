@@ -1,33 +1,24 @@
 import subprocess
 import time
 
-from core.auth.fingerprint_auth import (
-    scan_fingerprint
+from core.auth.fingerprint_auth import scan_fingerprint
+from core.auth.rfid_auth import scan_rfid
+from core.hardware.relay import open_door
+from core.hardware.lcd import lcd_write
+
+# ================= BUZZER =================
+from core.hardware.buzzer import (
+    success_beep,
+    error_beep,
+    warning_beep,
+    scan_beep
 )
 
-from core.auth.rfid_auth import (
-    scan_rfid
-)
-
-from core.hardware.relay import (
-    open_door
-)
-
-from core.hardware.lcd import (
-    lcd_write
-)
-
-from core.auth.master_user import (
-    load_master_users
-)
+from core.auth.master_user import load_master_users
 
 
 MAX_ATTEMPT = 3
-
-FACE_PY = (
-    "/home/raspi5/newsmartdorm/"
-    "envs/face_env/bin/python"
-)
+FACE_PY = "/home/raspi5/newsmartdorm/envs/face_env/bin/python"
 
 
 # ================= SAFE LCD =================
@@ -42,6 +33,16 @@ def safe_lcd(*args):
         print("⚠️ LCD skip:", e)
 
 
+# ================= EXTRACT NAME =================
+def extract_name(data):
+
+    if isinstance(data, dict):
+
+        return data.get("name")
+
+    return str(data)
+
+
 # ================= DOOR SEQUENCE =================
 def door_sequence(name):
 
@@ -50,6 +51,9 @@ def door_sequence(name):
         str(name),
         "Door Opening..."
     )
+
+    # ================= SUCCESS BEEP =================
+    success_beep()
 
     open_door()
 
@@ -142,6 +146,9 @@ def rfid_verify():
 
         if result:
 
+            # ================= SCAN BEEP =================
+            scan_beep()
+
             rfid_name = result["name"]
 
             print(f"✅ RFID valid: {rfid_name}")
@@ -185,7 +192,6 @@ def mode_face():
 
         result = scan_face_external(attempt)
 
-        # ================= FACE SUCCESS =================
         if result:
 
             print(f"🎉 Face dikenali: {result}")
@@ -226,6 +232,9 @@ def mode_face():
                             "Face != RFID"
                         )
 
+                        # ================= WARNING BEEP =================
+                        warning_beep()
+
                         safe_lcd(
                             "RFID MISMATCH",
                             "Use Finger",
@@ -246,6 +255,9 @@ def mode_face():
                         "di master"
                     )
 
+                    # ================= ERROR BEEP =================
+                    error_beep()
+
                     safe_lcd(
                         "UNKNOWN USER",
                         "",
@@ -260,6 +272,9 @@ def mode_face():
             else:
 
                 print("❌ RFID gagal")
+
+                # ================= WARNING BEEP =================
+                warning_beep()
 
                 safe_lcd(
                     "RFID FAILED",
@@ -297,7 +312,7 @@ def mode_face():
     return False
 
 
-# ================= MODE FINGERPRINT =================
+# ================= MODE FINGER =================
 def mode_fingerprint(expected_user=None):
 
     print("\n=== MODE 2: FINGERPRINT + RFID ===")
@@ -312,26 +327,18 @@ def mode_fingerprint(expected_user=None):
 
         result = scan_fingerprint()
 
-        # ================= SUCCESS =================
         if result:
+
+            # ================= SCAN BEEP =================
+            scan_beep()
 
             print(
                 f"🎉 Fingerprint dikenali: "
                 f"{result}"
             )
 
-            # ================= EXTRACT NAME =================
-            if isinstance(result, dict):
-
-                finger_name = result.get("name")
-
-                finger_id = result.get("fid")
-
-            else:
-
-                finger_name = str(result)
-
-                finger_id = None
+            # ================= FIX NAME EXTRACTION =================
+            finger_name = extract_name(result)
 
             # ================= CONTEXTUAL CHECK =================
             if expected_user:
@@ -343,6 +350,9 @@ def mode_fingerprint(expected_user=None):
                         "bukan user yang sama"
                     )
 
+                    # ================= WARNING BEEP =================
+                    warning_beep()
+
                     safe_lcd(
                         "INVALID USER",
                         "Fingerprint mismatch",
@@ -353,7 +363,6 @@ def mode_fingerprint(expected_user=None):
 
                     return False
 
-            # ================= LCD =================
             safe_lcd(
                 "FINGER OK",
                 str(finger_name),
@@ -362,7 +371,6 @@ def mode_fingerprint(expected_user=None):
 
             time.sleep(1)
 
-            # ================= RFID =================
             rfid_name = rfid_verify()
 
             if rfid_name:
@@ -387,6 +395,9 @@ def mode_fingerprint(expected_user=None):
                         "Fingerprint & RFID"
                     )
 
+                    # ================= WARNING BEEP =================
+                    warning_beep()
+
                     safe_lcd(
                         "ACCESS DENIED",
                         "Mismatch!",
@@ -401,6 +412,9 @@ def mode_fingerprint(expected_user=None):
 
                 print("❌ RFID gagal")
 
+                # ================= WARNING BEEP =================
+                warning_beep()
+
                 safe_lcd(
                     "RFID FAILED",
                     "",
@@ -411,7 +425,6 @@ def mode_fingerprint(expected_user=None):
 
                 return False
 
-        # ================= FAILED =================
         else:
 
             print(
@@ -468,6 +481,9 @@ def main():
                 f"untuk {expected_user}"
             )
 
+            # ================= WARNING BEEP =================
+            warning_beep()
+
             safe_lcd(
                 "USE FINGER",
                 expected_user,
@@ -490,7 +506,11 @@ def main():
 
                 return
 
+            # ================= FAILED =================
             print("\n⛔ AKSES DITOLAK")
+
+            # ================= ERROR BEEP =================
+            error_beep()
 
             safe_lcd(
                 "ACCESS DENIED",
@@ -504,6 +524,9 @@ def main():
 
     # ================= GLOBAL FALLBACK =================
     print("\n⚠️ Face gagal total")
+
+    # ================= WARNING BEEP =================
+    warning_beep()
 
     safe_lcd(
         "FACE UNKNOWN",
@@ -519,6 +542,9 @@ def main():
 
     # ================= TOTAL FAILED =================
     print("\n⛔ AKSES DITOLAK TOTAL")
+
+    # ================= ERROR BEEP =================
+    error_beep()
 
     safe_lcd(
         "ACCESS DENIED",
