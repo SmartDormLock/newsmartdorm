@@ -1,6 +1,13 @@
 import os
 from datetime import datetime
 
+# ================= FIREBASE =================
+from core.utils.firebase_logger import (
+    push_access_log,
+    push_system_log,
+    push_error_log
+)
+
 
 # ================= CONFIG =================
 LOG_DIR = "logs"
@@ -69,6 +76,17 @@ def log_system(message):
         message
     )
 
+    # ================= FIREBASE =================
+    try:
+
+        push_system_log(message)
+
+    except Exception as e:
+
+        print(
+            f"⚠️ Firebase system log error: {e}"
+        )
+
 
 # ================= ERROR =================
 def log_error(message):
@@ -78,6 +96,17 @@ def log_error(message):
         "ERROR",
         message
     )
+
+    # ================= FIREBASE =================
+    try:
+
+        push_error_log(message)
+
+    except Exception as e:
+
+        print(
+            f"⚠️ Firebase error log error: {e}"
+        )
 
 
 # ================= FACE =================
@@ -119,7 +148,9 @@ def log_rfid(
 
     if user:
 
-        message += f" | USER={user}"
+        message += (
+            f" | USER={user}"
+        )
 
     write_log(
         ACCESS_LOG,
@@ -186,6 +217,22 @@ def log_auth(
         message
     )
 
+    # ================= FIREBASE =================
+    try:
+
+        push_access_log(
+            user,
+            method,
+            result,
+            detail
+        )
+
+    except Exception as e:
+
+        print(
+            f"⚠️ Firebase auth log error: {e}"
+        )
+
 
 # ================= ACCESS =================
 def log_access(
@@ -210,7 +257,7 @@ def log_access(
 # ================= TEST =================
 if __name__ == "__main__":
 
-    print("\n?? Testing logger...\n")
+    print("\n🧪 Testing logger...\n")
 
     log_system(
         "SmartDormLock started"
@@ -248,4 +295,4 @@ if __name__ == "__main__":
         "Camera disconnected"
     )
 
-    print("? Logger test selesai\n")
+    print("✅ Logger test selesai\n")
