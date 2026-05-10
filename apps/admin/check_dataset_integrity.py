@@ -24,31 +24,53 @@ def get_face_users():
 
     for user in os.listdir(FACE_DATASET_PATH):
 
-        user_path = os.path.join(FACE_DATASET_PATH, user)
+        user_path = os.path.join(
+            FACE_DATASET_PATH,
+            user
+        )
 
         if not os.path.isdir(user_path):
             continue
 
         total_images = 0
-        folders = []
 
-        for angle in os.listdir(user_path):
+        conditions = set()
+        poses = set()
 
-            angle_path = os.path.join(user_path, angle)
+        # ================= RECURSIVE SCAN =================
+        for root, dirs, files in os.walk(user_path):
 
-            if os.path.isdir(angle_path):
+            relative_path = os.path.relpath(
+                root,
+                user_path
+            )
 
-                folders.append(angle)
+            parts = relative_path.split(os.sep)
 
-                images = [
-                    f for f in os.listdir(angle_path)
-                    if f.lower().endswith((".jpg", ".jpeg", ".png"))
-                ]
+            # condition
+            if len(parts) >= 1 and parts[0] != ".":
 
-                total_images += len(images)
+                conditions.add(parts[0])
+
+            # pose
+            if len(parts) >= 2:
+
+                poses.add(parts[1])
+
+            # count images
+            for file in files:
+
+                if file.lower().endswith((
+                    ".jpg",
+                    ".jpeg",
+                    ".png"
+                )):
+
+                    total_images += 1
 
         result[user] = {
-            "folders": folders,
+            "conditions": sorted(list(conditions)),
+            "poses": sorted(list(poses)),
             "total_images": total_images
         }
 
@@ -58,55 +80,79 @@ def get_face_users():
 # ================= MAIN CHECK =================
 def check_integrity():
 
-    print("\n========== DATASET INTEGRITY CHECK ==========\n")
+    print("\n=============================================")
+    print("      DATASET INTEGRITY CHECK")
+    print("=============================================")
 
     face_users = get_face_users()
 
     all_users = set()
 
-    # face users
+    # ================= COLLECT USERS =================
     all_users.update(face_users.keys())
-
-    # master users
     all_users.update(master_users.keys())
-
-    # rfid users
     all_users.update(rfid_cards.values())
-
-    # fingerprint users
     all_users.update(finger_users.values())
 
+    if not all_users:
+
+        print("\n❌ Tidak ada user ditemukan\n")
+
+        return
+
+    # ================= USER LOOP =================
     for user in sorted(all_users):
 
         print(f"\nUSER : {user}")
-        print("-" * 40)
+
+        print("-" * 45)
 
         # ================= FACE =================
         if user in face_users:
 
             data = face_users[user]
 
-            print(f"[FACE]          OK")
-            print(f"  Images        : {data['total_images']}")
-            print(f"  Folders       : {', '.join(data['folders'])}")
+            print("[FACE]          OK")
+
+            print(
+                f"  Images        : "
+                f"{data['total_images']}"
+            )
+
+            print(
+                f"  Conditions    : "
+                f"{', '.join(data['conditions'])}"
+            )
+
+            print(
+                f"  Poses         : "
+                f"{', '.join(data['poses'])}"
+            )
 
         else:
+
             print("[FACE]          MISSING")
 
         # ================= RFID =================
         rfid_ok = user in rfid_cards.values()
 
         if rfid_ok:
+
             print("[RFID]          OK")
+
         else:
+
             print("[RFID]          MISSING")
 
         # ================= FINGERPRINT =================
         finger_ok = user in finger_users.values()
 
         if finger_ok:
+
             print("[FINGERPRINT]   OK")
+
         else:
+
             print("[FINGERPRINT]   MISSING")
 
         # ================= MASTER =================
@@ -115,21 +161,35 @@ def check_integrity():
             data = master_users[user]
 
             print("[MASTER]        OK")
-            print(f"  RFID UID      : {data['rfid']}")
-            print(f"  Finger ID     : {data['finger']}")
+
+            print(
+                f"  RFID UID      : "
+                f"{data['rfid']}"
+            )
+
+            print(
+                f"  Finger ID     : "
+                f"{data['finger']}"
+            )
 
         else:
+
             print("[MASTER]        MISSING")
 
         # ================= STATUS =================
-        if (
+        healthy = (
             user in face_users
             and rfid_ok
             and finger_ok
             and user in master_users
-        ):
+        )
+
+        if healthy:
+
             print("\nSTATUS : HEALTHY")
+
         else:
+
             print("\nSTATUS : WARNING / INCOMPLETE")
 
     print("\n=============================================\n")

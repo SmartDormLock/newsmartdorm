@@ -1,23 +1,44 @@
 import subprocess
 import time
 
-from core.auth.fingerprint_auth import scan_fingerprint
-from core.auth.rfid_auth import scan_rfid
-from core.hardware.relay import open_door
-from core.hardware.lcd import lcd_write
-from core.auth.master_user import load_master_users
+from core.auth.fingerprint_auth import (
+    scan_fingerprint
+)
+
+from core.auth.rfid_auth import (
+    scan_rfid
+)
+
+from core.hardware.relay import (
+    open_door
+)
+
+from core.hardware.lcd import (
+    lcd_write
+)
+
+from core.auth.master_user import (
+    load_master_users
+)
 
 
 MAX_ATTEMPT = 3
-FACE_PY = "/home/raspi5/newsmartdorm/envs/face_env/bin/python"
+
+FACE_PY = (
+    "/home/raspi5/newsmartdorm/"
+    "envs/face_env/bin/python"
+)
 
 
 # ================= SAFE LCD =================
 def safe_lcd(*args):
+
     try:
+
         lcd_write(*args)
 
     except Exception as e:
+
         print("⚠️ LCD skip:", e)
 
 
@@ -61,25 +82,44 @@ def scan_face_external(attempt):
     )
 
     try:
+
         result = subprocess.run(
-            [FACE_PY, "-m", "apps.face.face_app", "--no-relay"],
+            [
+                FACE_PY,
+                "-m",
+                "apps.face.face_app",
+                "--no-relay"
+            ],
             capture_output=True,
             text=True
         )
 
-        output = (result.stdout or "") + "\n" + (result.stderr or "")
+        output = (
+            (result.stdout or "")
+            + "\n"
+            + (result.stderr or "")
+        )
+
         output = output.strip()
 
         print("----- FACE OUTPUT -----")
+
         print(output)
+
         print("-----------------------")
 
         for line in output.splitlines():
 
             if "Akses:" in line:
-                return line.split("Akses:")[-1].strip()
+
+                return (
+                    line
+                    .split("Akses:")[-1]
+                    .strip()
+                )
 
     except Exception as e:
+
         print("❌ Face error:", e)
 
     return None
@@ -118,7 +158,10 @@ def rfid_verify():
 
         else:
 
-            print(f"❌ RFID gagal ({attempt}/{MAX_ATTEMPT})")
+            print(
+                f"❌ RFID gagal "
+                f"({attempt}/{MAX_ATTEMPT})"
+            )
 
             safe_lcd(
                 "RFID FAILED",
@@ -136,13 +179,13 @@ def mode_face():
 
     print("\n=== MODE 1: FACE + RFID ===")
 
-    # reload dynamic
     master_users = load_master_users()
 
     for attempt in range(1, MAX_ATTEMPT + 1):
 
         result = scan_face_external(attempt)
 
+        # ================= FACE SUCCESS =================
         if result:
 
             print(f"🎉 Face dikenali: {result}")
@@ -155,7 +198,7 @@ def mode_face():
 
             time.sleep(1)
 
-            # RFID setelah face sukses
+            # ================= RFID VERIFY =================
             rfid_name = rfid_verify()
 
             # ================= RFID SUCCESS =================
@@ -167,7 +210,10 @@ def mode_face():
 
                     if rfid_name == result:
 
-                        print("🔐 MATCH: Face & RFID sesuai")
+                        print(
+                            "🔐 MATCH: "
+                            "Face & RFID sesuai"
+                        )
 
                         door_sequence(result)
 
@@ -175,7 +221,10 @@ def mode_face():
 
                     else:
 
-                        print("🚫 MISMATCH: Face != RFID")
+                        print(
+                            "🚫 MISMATCH: "
+                            "Face != RFID"
+                        )
 
                         safe_lcd(
                             "RFID MISMATCH",
@@ -185,7 +234,6 @@ def mode_face():
 
                         time.sleep(3)
 
-                        # fallback contextual
                         return {
                             "status": "rfid_failed",
                             "user": result
@@ -193,7 +241,10 @@ def mode_face():
 
                 else:
 
-                    print("🚫 User tidak ada di master")
+                    print(
+                        "🚫 User tidak ada "
+                        "di master"
+                    )
 
                     safe_lcd(
                         "UNKNOWN USER",
@@ -218,7 +269,6 @@ def mode_face():
 
                 time.sleep(3)
 
-                # fallback contextual
                 return {
                     "status": "rfid_failed",
                     "user": result
@@ -227,9 +277,14 @@ def mode_face():
         # ================= FACE FAILED =================
         else:
 
-            print(f"❌ Face gagal ({attempt}/{MAX_ATTEMPT})")
+            print(
+                f"❌ Face gagal "
+                f"({attempt}/{MAX_ATTEMPT})"
+            )
 
-            remaining = MAX_ATTEMPT - attempt
+            remaining = (
+                MAX_ATTEMPT - attempt
+            )
 
             safe_lcd(
                 "FACE FAILED",
@@ -242,7 +297,7 @@ def mode_face():
     return False
 
 
-# ================= MODE FINGER =================
+# ================= MODE FINGERPRINT =================
 def mode_fingerprint(expected_user=None):
 
     print("\n=== MODE 2: FINGERPRINT + RFID ===")
@@ -257,16 +312,36 @@ def mode_fingerprint(expected_user=None):
 
         result = scan_fingerprint()
 
+        # ================= SUCCESS =================
         if result:
 
-            print(f"🎉 Fingerprint dikenali: {result}")
+            print(
+                f"🎉 Fingerprint dikenali: "
+                f"{result}"
+            )
+
+            # ================= EXTRACT NAME =================
+            if isinstance(result, dict):
+
+                finger_name = result.get("name")
+
+                finger_id = result.get("fid")
+
+            else:
+
+                finger_name = str(result)
+
+                finger_id = None
 
             # ================= CONTEXTUAL CHECK =================
             if expected_user:
 
-                if result != expected_user:
+                if finger_name != expected_user:
 
-                    print("🚫 Fingerprint bukan user yang sama")
+                    print(
+                        "🚫 Fingerprint "
+                        "bukan user yang sama"
+                    )
 
                     safe_lcd(
                         "INVALID USER",
@@ -278,29 +353,39 @@ def mode_fingerprint(expected_user=None):
 
                     return False
 
+            # ================= LCD =================
             safe_lcd(
                 "FINGER OK",
-                str(result),
+                str(finger_name),
                 "Scan RFID..."
             )
 
             time.sleep(1)
 
+            # ================= RFID =================
             rfid_name = rfid_verify()
 
             if rfid_name:
 
-                if rfid_name == result:
+                if rfid_name == finger_name:
 
-                    print("🔐 MATCH: Fingerprint & RFID sesuai")
+                    print(
+                        "🔐 MATCH: "
+                        "Fingerprint & RFID sesuai"
+                    )
 
-                    door_sequence(result)
+                    door_sequence(
+                        finger_name
+                    )
 
                     return True
 
                 else:
 
-                    print("🚫 MISMATCH Fingerprint & RFID")
+                    print(
+                        "🚫 MISMATCH "
+                        "Fingerprint & RFID"
+                    )
 
                     safe_lcd(
                         "ACCESS DENIED",
@@ -326,9 +411,13 @@ def mode_fingerprint(expected_user=None):
 
                 return False
 
+        # ================= FAILED =================
         else:
 
-            print(f"❌ Fingerprint gagal ({attempt}/{MAX_ATTEMPT})")
+            print(
+                f"❌ Fingerprint gagal "
+                f"({attempt}/{MAX_ATTEMPT})"
+            )
 
             safe_lcd(
                 "FINGER FAILED",
@@ -358,17 +447,26 @@ def main():
     face_result = mode_face()
 
     # ================= SUCCESS =================
-    if face_result == True:
+    if face_result is True:
+
         return
 
     # ================= CONTEXTUAL FALLBACK =================
     if isinstance(face_result, dict):
 
-        if face_result["status"] == "rfid_failed":
+        if (
+            face_result["status"]
+            == "rfid_failed"
+        ):
 
-            expected_user = face_result["user"]
+            expected_user = (
+                face_result["user"]
+            )
 
-            print(f"\n⚠️ Fallback fingerprint untuk {expected_user}")
+            print(
+                f"\n⚠️ Fallback fingerprint "
+                f"untuk {expected_user}"
+            )
 
             safe_lcd(
                 "USE FINGER",
@@ -376,7 +474,7 @@ def main():
                 "5 sec..."
             )
 
-            # countdown
+            # ================= COUNTDOWN =================
             for i in range(5, 0, -1):
 
                 safe_lcd(
@@ -387,11 +485,11 @@ def main():
 
                 time.sleep(1)
 
-            # fingerprint contextual
+            # ================= CONTEXTUAL VERIFY =================
             if mode_fingerprint(expected_user):
+
                 return
 
-            # gagal contextual fingerprint
             print("\n⛔ AKSES DITOLAK")
 
             safe_lcd(
@@ -405,7 +503,6 @@ def main():
             return
 
     # ================= GLOBAL FALLBACK =================
-    # HANYA kalau face benar-benar gagal total
     print("\n⚠️ Face gagal total")
 
     safe_lcd(
@@ -417,6 +514,7 @@ def main():
     time.sleep(3)
 
     if mode_fingerprint():
+
         return
 
     # ================= TOTAL FAILED =================

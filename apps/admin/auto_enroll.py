@@ -1,8 +1,11 @@
 import sys
-sys.stdout.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding="utf-8")
 
-import subprocess
+import os
 import time
+import subprocess
+
+import adafruit_fingerprint
 
 from core.auth.rfid_auth import (
     scan_new_rfid,
@@ -10,39 +13,59 @@ from core.auth.rfid_auth import (
     save_cards
 )
 
-from core.auth.fingerprint_auth import load_users
-from core.auth.master_user import add_master_user
-from core.hardware.fingerprint import FingerprintSensor
+from core.auth.fingerprint_auth import (
+    load_users
+)
 
-import adafruit_fingerprint
+from core.auth.master_user import (
+    add_master_user
+)
+
+from core.hardware.fingerprint import (
+    FingerprintSensor
+)
 
 
-# 🔥 PATH ke environment face
-FACE_PY = "/home/raspi5/newsmartdorm/envs/face_env/bin/python"
+# ================= FACE ENV =================
+FACE_PY = (
+    "/home/raspi5/newsmartdorm/"
+    "envs/face_env/bin/python"
+)
 
-# module face
 FACE_DATASET_MODULE = "apps.face.dataset_app"
+
 FACE_TRAIN_MODULE = "apps.face.train_app"
 
 
-# ================= CONNECT SENSOR SAFE =================
+# ================= PATH =================
+FINGERPRINT_FILE = (
+    "data/fingerprint/users.txt"
+)
+
+
+# ================= CONNECT SENSOR =================
 def connect_fingerprint(max_retry=5):
 
     for i in range(max_retry):
 
         try:
-            print(f"🔌 Connecting fingerprint ({i+1}/{max_retry})...")
+
+            print(
+                f"🔌 Connecting fingerprint "
+                f"({i + 1}/{max_retry})..."
+            )
 
             sensor = FingerprintSensor()
 
             return sensor
 
         except Exception as e:
-            print(f"⚠️ Gagal connect: {e}")
+
+            print(f"⚠️ Connection failed : {e}")
 
             time.sleep(2)
 
-    print("❌ Fingerprint sensor gagal connect total")
+    print("\n❌ Fingerprint sensor gagal connect")
 
     return None
 
@@ -56,7 +79,7 @@ def save_rfid_user(uid, name):
 
     save_cards(cards)
 
-    print("✅ RFID berhasil disimpan ke cards.txt")
+    print("✅ RFID saved")
 
 
 # ================= SAVE FINGERPRINT =================
@@ -64,84 +87,151 @@ def save_fingerprint_user(fid, name):
 
     users = load_users()
 
+    # ================= DUPLICATE CHECK =================
+    if fid in users:
+
+        print("\n❌ Finger ID already used")
+        print(f"Slot : {fid}")
+        print(f"User : {users[fid]}")
+
+        return False
+
     users[fid] = name
 
-    with open("data/fingerprint/users.txt", "w") as f:
+    with open(FINGERPRINT_FILE, "w") as f:
 
         for user_id, username in users.items():
-            f.write(f"{user_id},{username}\n")
 
-    print("✅ Fingerprint berhasil disimpan ke users.txt")
+            f.write(
+                f"{user_id},"
+                f"{username}\n"
+            )
+
+    print("✅ Fingerprint saved")
+
+    return True
 
 
-# ================= FINGERPRINT AUTO =================
+# ================= GET EMPTY SLOT =================
+def get_next_finger_id(users):
+
+    fid = 1
+
+    while fid in users:
+
+        fid += 1
+
+    return fid
+
+
+# ================= ENROLL FINGERPRINT =================
 def enroll_fingerprint_auto():
 
     sensor = connect_fingerprint()
 
     if not sensor:
+
         return None
 
+    users = load_users()
+
+    # ================= AUTO SLOT =================
+    finger_id = get_next_finger_id(users)
+
+    print("\n==============================")
+    print(" FINGERPRINT ENROLLMENT")
+    print("==============================")
+
+    print(f"📌 Auto Slot : {finger_id}")
+
+    # ================= FIRST SCAN =================
     print("\n👉 Tempelkan sidik jari...")
 
-    # ================= SCAN PERTAMA =================
     while True:
 
         try:
-            if sensor.read_image() == adafruit_fingerprint.OK:
 
-                if sensor.convert(1) == adafruit_fingerprint.OK:
+            if (
+                sensor.read_image()
+                == adafruit_fingerprint.OK
+            ):
+
+                if (
+                    sensor.convert(1)
+                    == adafruit_fingerprint.OK
+                ):
 
                     print("✅ Scan pertama berhasil")
 
                     break
 
                 else:
-                    print("⚠️ Gagal convert scan pertama, coba lagi...")
+
+                    print(
+                        "⚠️ Convert gagal, "
+                        "coba lagi..."
+                    )
 
         except Exception as e:
 
-            print(f"⚠️ Error sensor: {e}")
+            print(f"⚠️ Sensor error : {e}")
 
             sensor = connect_fingerprint()
 
             if not sensor:
+
                 return None
 
         time.sleep(0.1)
 
-    # ================= LEPAS JARI =================
-    print("👉 Lepas jari...")
+    # ================= REMOVE FINGER =================
+    print("\n👉 Lepas jari...")
 
-    while sensor.read_image() != adafruit_fingerprint.NOFINGER:
+    while (
+        sensor.read_image()
+        != adafruit_fingerprint.NOFINGER
+    ):
+
         time.sleep(0.1)
 
     time.sleep(1)
 
-    # ================= SCAN KEDUA =================
-    print("👉 Tempelkan lagi jari yang sama...")
+    # ================= SECOND SCAN =================
+    print("\n👉 Tempelkan lagi jari yang sama...")
 
     while True:
 
         try:
-            if sensor.read_image() == adafruit_fingerprint.OK:
 
-                if sensor.convert(2) == adafruit_fingerprint.OK:
+            if (
+                sensor.read_image()
+                == adafruit_fingerprint.OK
+            ):
+
+                if (
+                    sensor.convert(2)
+                    == adafruit_fingerprint.OK
+                ):
 
                     print("✅ Scan kedua berhasil")
 
                     break
 
                 else:
-                    print("⚠️ Gagal convert scan kedua, coba lagi...")
+
+                    print(
+                        "⚠️ Convert gagal, "
+                        "coba lagi..."
+                    )
 
         except Exception as e:
 
-            print(f"⚠️ Error sensor: {e}")
+            print(f"⚠️ Sensor error : {e}")
 
             sensor = connect_fingerprint()
 
             if not sensor:
+
                 return None
 
         time.sleep(0.1)
@@ -150,121 +240,197 @@ def enroll_fingerprint_auto():
     while True:
 
         try:
+
             result = sensor.create_model()
 
             if result == adafruit_fingerprint.OK:
 
-                print("✅ Model fingerprint berhasil dibuat")
+                print(
+                    "✅ Fingerprint model created"
+                )
 
                 break
 
-            elif result == adafruit_fingerprint.ENROLLMISMATCH:
+            elif (
+                result
+                == adafruit_fingerprint.ENROLLMISMATCH
+            ):
 
-                print("⚠️ Sidik jari tidak cocok, scan ulang...")
+                print(
+                    "⚠️ Sidik jari tidak cocok"
+                )
+
+                return None
 
             else:
-                print("⚠️ Gagal create model, retry...")
+
+                print(
+                    "⚠️ Create model failed"
+                )
 
         except Exception as e:
-            print(f"⚠️ Error create model: {e}")
+
+            print(f"⚠️ Create model error : {e}")
 
         time.sleep(1)
 
     # ================= STORE =================
-    for i in range(1, 128):
+    try:
 
-        try:
-            result = sensor.store(i)
+        result = sensor.store(finger_id)
 
-            if result == adafruit_fingerprint.OK:
+        if result == adafruit_fingerprint.OK:
 
-                print(f"✅ Fingerprint disimpan di ID {i}")
+            print(
+                f"✅ Fingerprint stored "
+                f"in slot {finger_id}"
+            )
 
-                return i
+            return finger_id
 
-        except Exception as e:
+        else:
 
-            print(f"⚠️ Error saat store: {e}")
+            print(
+                f"❌ Store failed : {result}"
+            )
 
-            sensor = connect_fingerprint()
+            return None
 
-            if not sensor:
-                return None
+    except Exception as e:
 
-    print("❌ Tidak ada slot kosong")
+        print(f"❌ Store error : {e}")
 
-    return None
+        return None
 
 
 # ================= AUTO ENROLL =================
 def auto_enroll():
 
-    print("\n========== AUTO ENROLL USER ==========")
+    print("\n================================")
+    print("       AUTO ENROLL USER")
+    print("================================")
 
-    name = input("Masukkan nama user: ").strip()
+    # ================= INPUT NAME =================
+    name = input(
+        "\nMasukkan nama user : "
+    ).strip()
 
     if not name:
 
-        print("❌ Nama tidak boleh kosong")
+        print("\n❌ Nama tidak boleh kosong")
 
         return
 
-    # ================= FACE =================
-    print("\n📷 Capture dataset wajah...")
+    # ================= FACE DATASET =================
+    print("\n================================")
+    print(" FACE DATASET CAPTURE")
+    print("================================")
 
-    subprocess.run(
-        [FACE_PY, "-m", FACE_DATASET_MODULE],
-        check=True
-    )
+    try:
 
-    print("\n🧠 Training wajah...")
+        subprocess.run(
+            [
+                FACE_PY,
+                "-m",
+                FACE_DATASET_MODULE,
+                name
+            ],
+            check=True
+        )
 
-    subprocess.run(
-        [FACE_PY, "-m", FACE_TRAIN_MODULE],
-        check=True
-    )
+    except Exception as e:
+
+        print("\n❌ Face dataset failed")
+        print(e)
+
+        return
+
+    # ================= FACE TRAIN =================
+    print("\n================================")
+    print(" FACE TRAINING")
+    print("================================")
+
+    try:
+
+        subprocess.run(
+            [
+                FACE_PY,
+                "-m",
+                FACE_TRAIN_MODULE
+            ],
+            check=True
+        )
+
+    except Exception as e:
+
+        print("\n❌ Face training failed")
+        print(e)
+
+        return
 
     # ================= RFID =================
-    print("\n📡 Scan RFID...")
+    print("\n================================")
+    print(" RFID ENROLLMENT")
+    print("================================")
 
     rfid_data = scan_new_rfid()
 
     if not rfid_data:
 
-        print("❌ RFID gagal")
+        print("\n❌ RFID enrollment failed")
 
         return
 
     rfid_uid = rfid_data["uid"]
 
-    print(f"✅ RFID UID: {rfid_uid}")
+    print(f"\n✅ RFID UID : {rfid_uid}")
 
     # ================= FINGERPRINT =================
-    print("\n👉 Enroll fingerprint...")
+    print("\n================================")
+    print(" FINGERPRINT ENROLLMENT")
+    print("================================")
 
     fid = enroll_fingerprint_auto()
 
     if not fid:
 
-        print("❌ Fingerprint gagal")
+        print("\n❌ Fingerprint enrollment failed")
 
         return
 
-    # ================= SAVE RFID DB =================
-    save_rfid_user(rfid_uid, name)
+    # ================= SAVE RFID =================
+    save_rfid_user(
+        rfid_uid,
+        name
+    )
 
-    # ================= SAVE FINGERPRINT DB =================
-    save_fingerprint_user(fid, name)
+    # ================= SAVE FINGERPRINT =================
+    fp_saved = save_fingerprint_user(
+        fid,
+        name
+    )
 
-    # ================= MASTER SYNC =================
-    add_master_user(name, rfid_uid, fid)
+    if not fp_saved:
 
-    print("\n🎉 AUTO ENROLL SELESAI!")
-    print("====================================")
+        return
+
+    # ================= MASTER USER =================
+    add_master_user(
+        name,
+        rfid_uid,
+        fid
+    )
+
+    # ================= FINISH =================
+    print("\n================================")
+    print("      AUTO ENROLL SUCCESS")
+    print("================================")
+
     print(f"User : {name}")
     print(f"RFID : {rfid_uid}")
     print(f"FID  : {fid}")
-    print("====================================")
+
+    print("================================")
 
 
 # ================= ENTRY =================

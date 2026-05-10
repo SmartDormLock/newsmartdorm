@@ -1,160 +1,340 @@
 import os
 import cv2
 import time
+import sys
+
 from PIL import Image
 from facenet_pytorch import MTCNN
 
 DATASET_PATH = "data/face/dataset"
 
-# 🔥 ringan + tetap aligned
-mtcnn = MTCNN(keep_all=False, image_size=160, device="cpu")
+# ================= FACE DETECTOR =================
+mtcnn = MTCNN(
+    keep_all=False,
+    image_size=160,
+    device="cpu"
+)
+
+# ================= CONFIG =================
+conditions = [
+    "Normal",
+    "Kacamata",
+    "Masker"
+]
+
+poses = [
+    "Lurus",
+    "Kanan",
+    "Kiri",
+    "Atas",
+    "Bawah"
+]
+
+photos_per_pose = 10
+
+prepare_time = 2
+cooldown_time = 2
+condition_prepare_time = 5
+
+frame_skip = 3
+
+TEXT_COLOR = (255, 255, 255)
+
+FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 
 # ================= UI =================
-def draw_info(frame, user, pose, count, total, status=""):
-    cv2.putText(frame, f"User: {user}", (10, 25),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+def draw_info(
+    frame,
+    user,
+    condition,
+    pose,
+    count,
+    total,
+    status=""
+):
 
-    cv2.putText(frame, f"Pose: {pose}", (10, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+    cv2.putText(
+        frame,
+        f"User       : {user}",
+        (20, 35),
+        FONT,
+        0.65,
+        TEXT_COLOR,
+        2
+    )
 
-    cv2.putText(frame, f"Capture: {count}/{total}", (10, 75),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+    cv2.putText(
+        frame,
+        f"Condition  : {condition}",
+        (20, 70),
+        FONT,
+        0.65,
+        TEXT_COLOR,
+        2
+    )
+
+    cv2.putText(
+        frame,
+        f"Pose       : {pose}",
+        (20, 105),
+        FONT,
+        0.65,
+        TEXT_COLOR,
+        2
+    )
+
+    cv2.putText(
+        frame,
+        f"Capture    : {count}/{total}",
+        (20, 140),
+        FONT,
+        0.65,
+        TEXT_COLOR,
+        2
+    )
 
     if status:
-        cv2.putText(frame, status, (10, 105),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 200, 255), 2)
 
-    cv2.putText(frame, "Press S to start | ESC to exit", (10, 135),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        cv2.putText(
+            frame,
+            status,
+            (20, 190),
+            FONT,
+            0.7,
+            TEXT_COLOR,
+            2
+        )
+
+    cv2.putText(
+        frame,
+        "Press S to Start | ESC to Exit",
+        (20, 440),
+        FONT,
+        0.55,
+        TEXT_COLOR,
+        1
+    )
+
+
+# ================= SAVE FACE =================
+def save_face(face_tensor, save_path):
+
+    face_img = (
+        face_tensor.permute(1, 2, 0).numpy() * 255
+    )
+
+    face_img = face_img.astype("uint8")
+
+    cv2.imwrite(
+        save_path,
+        cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR)
+    )
+
+    cv2.imshow(
+        "Aligned Face",
+        face_img
+    )
 
 
 # ================= MAIN =================
 def capture_dataset():
-    poses = ["lurus", "kanan", "kiri", "atas", "bawah"]
-    photos_per_pose = 10
 
-    prepare_time = 2      # ⏳ waktu siap sebelum capture pose
-    cooldown_time = 2     # ⏳ jeda antar pose
-    frame_skip = 3        # 🔥 detect tiap N frame (biar ringan)
+    # ================= USER NAME =================
+    if len(sys.argv) > 1:
 
-    user_name = input("Masukkan nama user: ").strip()
+        user_name = sys.argv[1].strip()
+
+        print(f"\n👤 User : {user_name}")
+
+    else:
+
+        user_name = input("Masukkan nama user : ").strip()
+
     if not user_name:
-        print("❌ Nama tidak boleh kosong")
+
+        print("\n❌ Nama user tidak boleh kosong")
+
         return
 
-    user_path = os.path.join(DATASET_PATH, user_name)
-    for pose in poses:
-        os.makedirs(os.path.join(user_path, pose), exist_ok=True)
+    # ================= CREATE FOLDER =================
+    user_path = os.path.join(
+        DATASET_PATH,
+        user_name
+    )
 
+    for condition in conditions:
+
+        for pose in poses:
+
+            os.makedirs(
+                os.path.join(
+                    user_path,
+                    condition.lower(),
+                    pose.lower()
+                ),
+                exist_ok=True
+            )
+
+    # ================= CAMERA =================
     cap = cv2.VideoCapture(0)
+
     cap.set(3, 640)
     cap.set(4, 480)
 
     if not cap.isOpened():
-        print("❌ Kamera tidak bisa dibuka")
+
+        print("\n❌ Kamera tidak bisa dibuka")
+
         return
 
-    print("\n[INFO] Tekan 'S' untuk mulai capture | ESC untuk keluar")
+    print("\n==============================")
+    print(" SmartDormLock Dataset Capture")
+    print("==============================")
+    print(" Press S   : Start")
+    print(" Press ESC : Exit")
+    print("==============================")
 
     # ================= PREVIEW =================
     while True:
+
         ret, frame = cap.read()
+
         if not ret:
             continue
 
         frame = cv2.flip(frame, 1)
-        draw_info(frame, user_name, "-", 0, photos_per_pose)
 
-        cv2.imshow("Capture", frame)
+        draw_info(
+            frame,
+            user_name,
+            "-",
+            "-",
+            0,
+            photos_per_pose
+        )
+
+        cv2.imshow(
+            "SmartDormLock Dataset",
+            frame
+        )
 
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('s'):
+
+        if key == ord("s"):
             break
+
         elif key == 27:
+
             cap.release()
             cv2.destroyAllWindows()
+
             return
 
-    print("\n[INFO] Mulai capture dataset...")
+    print("\n[INFO] Memulai capture dataset...\n")
 
-    # ================= CAPTURE =================
-    for idx, pose in enumerate(poses):
-        print(f"\n👉 Pose: {pose}")
-        cv2.setWindowTitle("Capture", f"Capture - {pose}")
+    # ================= CONDITION LOOP =================
+    for condition in conditions:
 
-        # ===== PREPARE =====
-        start = time.time()
-        while time.time() - start < prepare_time:
+        print("\n==============================")
+        print(f" CONDITION : {condition}")
+        print("==============================")
+
+        # ================= CONDITION PREPARE =================
+        start_condition = time.time()
+
+        while time.time() - start_condition < condition_prepare_time:
+
             ret, frame = cap.read()
+
             if not ret:
                 continue
 
             frame = cv2.flip(frame, 1)
+
+            countdown = (
+                int(
+                    condition_prepare_time -
+                    (time.time() - start_condition)
+                ) + 1
+            )
 
             draw_info(
                 frame,
                 user_name,
-                pose,
+                condition,
+                "-",
                 0,
                 photos_per_pose,
-                f"Siapkan pose ({int(prepare_time - (time.time() - start)) + 1}s)"
+                f"Siapkan kondisi {condition} ({countdown}s)"
             )
 
-            cv2.imshow("Capture", frame)
+            cv2.imshow(
+                "SmartDormLock Dataset",
+                frame
+            )
 
             if cv2.waitKey(1) & 0xFF == 27:
+
                 cap.release()
                 cv2.destroyAllWindows()
+
                 return
 
-        count = 0
-        frame_count = 0
+        # ================= POSE LOOP =================
+        for idx, pose in enumerate(poses):
 
-        # ===== CAPTURE LOOP =====
-        while count < photos_per_pose:
-            ret, frame = cap.read()
-            if not ret:
-                continue
+            print(f"\n👉 Pose : {pose}")
 
-            frame = cv2.flip(frame, 1)
-            draw_info(frame, user_name, pose, count, photos_per_pose)
+            start_prepare = time.time()
 
-            # 🔥 DETECT TIDAK SETIAP FRAME
-            if frame_count % frame_skip == 0:
-                small = cv2.resize(frame, (320, 240))
-                img = Image.fromarray(cv2.cvtColor(small, cv2.COLOR_BGR2RGB))
-                face = mtcnn(img)
+            # ================= PREPARE =================
+            while time.time() - start_prepare < prepare_time:
 
-                if face is not None:
-                    face_img = face.permute(1, 2, 0).numpy() * 255
-                    face_img = face_img.astype("uint8")
-
-                    filename = os.path.join(user_path, pose, f"{count}.jpg")
-                    cv2.imwrite(filename, cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR))
-
-                    print(f"Saved: {filename}")
-                    count += 1
-
-                    cv2.imshow("Aligned Face", face_img)
-
-            frame_count += 1
-
-            cv2.imshow("Capture", frame)
-
-            key = cv2.waitKey(1) & 0xFF
-            if key == 27:
-                cap.release()
-                cv2.destroyAllWindows()
-                return
-
-        # ===== COOLDOWN (antar pose) =====
-        if idx < len(poses) - 1:
-            print(f"[INFO] Pindah ke pose berikutnya dalam {cooldown_time} detik...")
-
-            start_cd = time.time()
-            while time.time() - start_cd < cooldown_time:
                 ret, frame = cap.read()
+
+                if not ret:
+                    continue
+
+                frame = cv2.flip(frame, 1)
+
+                countdown = (
+                    int(
+                        prepare_time -
+                        (time.time() - start_prepare)
+                    ) + 1
+                )
+
+                draw_info(
+                    frame,
+                    user_name,
+                    condition,
+                    pose,
+                    0,
+                    photos_per_pose,
+                    f"Siapkan pose {pose} ({countdown}s)"
+                )
+
+                cv2.imshow(
+                    "SmartDormLock Dataset",
+                    frame
+                )
+
+                if cv2.waitKey(1) & 0xFF == 27:
+
+                    cap.release()
+                    cv2.destroyAllWindows()
+
+                    return
+
+            count = 0
+            frame_count = 0
+
+            # ================= CAPTURE LOOP =================
+            while count < photos_per_pose:
+
+                ret, frame = cap.read()
+
                 if not ret:
                     continue
 
@@ -163,23 +343,125 @@ def capture_dataset():
                 draw_info(
                     frame,
                     user_name,
+                    condition,
                     pose,
-                    photos_per_pose,
-                    photos_per_pose,
-                    f"Next pose in {int(cooldown_time - (time.time() - start_cd)) + 1}s"
+                    count,
+                    photos_per_pose
                 )
 
-                cv2.imshow("Capture", frame)
+                # ================= FACE DETECTION =================
+                if frame_count % frame_skip == 0:
 
-                if cv2.waitKey(1) & 0xFF == 27:
+                    small = cv2.resize(
+                        frame,
+                        (320, 240)
+                    )
+
+                    img = Image.fromarray(
+                        cv2.cvtColor(
+                            small,
+                            cv2.COLOR_BGR2RGB
+                        )
+                    )
+
+                    face = mtcnn(img)
+
+                    if face is not None:
+
+                        save_path = os.path.join(
+                            user_path,
+                            condition.lower(),
+                            pose.lower(),
+                            f"{condition.lower()}_{pose.lower()}_{count}.jpg"
+                        )
+
+                        save_face(
+                            face,
+                            save_path
+                        )
+
+                        print(f"✅ Saved : {save_path}")
+
+                        count += 1
+
+                frame_count += 1
+
+                cv2.imshow(
+                    "SmartDormLock Dataset",
+                    frame
+                )
+
+                key = cv2.waitKey(1) & 0xFF
+
+                if key == 27:
+
                     cap.release()
                     cv2.destroyAllWindows()
+
                     return
 
+            # ================= COOLDOWN =================
+            if idx < len(poses) - 1:
+
+                start_cd = time.time()
+
+                while time.time() - start_cd < cooldown_time:
+
+                    ret, frame = cap.read()
+
+                    if not ret:
+                        continue
+
+                    frame = cv2.flip(frame, 1)
+
+                    countdown = (
+                        int(
+                            cooldown_time -
+                            (time.time() - start_cd)
+                        ) + 1
+                    )
+
+                    draw_info(
+                        frame,
+                        user_name,
+                        condition,
+                        pose,
+                        photos_per_pose,
+                        photos_per_pose,
+                        f"Pose berikutnya ({countdown}s)"
+                    )
+
+                    cv2.imshow(
+                        "SmartDormLock Dataset",
+                        frame
+                    )
+
+                    if cv2.waitKey(1) & 0xFF == 27:
+
+                        cap.release()
+                        cv2.destroyAllWindows()
+
+                        return
+
+    # ================= FINISH =================
     cap.release()
+
     cv2.destroyAllWindows()
 
-    print("\n✅ Dataset selesai (smooth + cooldown + aligned)")
+    total_images = (
+        len(conditions)
+        * len(poses)
+        * photos_per_pose
+    )
+
+    print("\n==============================")
+    print(" Dataset Selesai")
+    print("==============================")
+    print(f" User         : {user_name}")
+    print(f" Conditions   : {len(conditions)}")
+    print(f" Poses        : {len(poses)}")
+    print(f" Total Images : {total_images}")
+    print("==============================")
 
 
 # ================= ENTRY =================
