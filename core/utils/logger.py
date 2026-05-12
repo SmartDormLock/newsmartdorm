@@ -1,11 +1,21 @@
 import os
 from datetime import datetime
 
-# ================= FIREBASE =================
+import requests
+
+
+# ================= BACKEND =================
+BACKEND_URL = (
+    "https://smart-dorm-backend-rose.vercel.app"
+)
+
+
 from core.utils.firebase_logger import (
     push_access_log,
     push_system_log,
-    push_error_log
+    push_error_log,
+    update_door_status as firebase_update_door_status,
+    update_auth_state as firebase_update_auth_state
 )
 
 
@@ -65,6 +75,43 @@ def write_log(
     ) as f:
 
         f.write(log_line)
+
+
+# ================= SEND TO BACKEND =================
+def send_to_backend(
+    user_name,
+    method,
+    status,
+    detail=""
+):
+
+    try:
+
+        response = requests.post(
+
+            f"{BACKEND_URL}/api/device/access",
+
+            json={
+
+                "user_name": user_name,
+                "method": method,
+                "status": status,
+                "detail": detail
+            },
+
+            timeout=10
+        )
+
+        print(
+            "[BACKEND SUCCESS]",
+            response.json()
+        )
+
+    except Exception as e:
+
+        print(
+            f"[BACKEND FAILED] {e}"
+        )
 
 
 # ================= SYSTEM =================
@@ -233,6 +280,14 @@ def log_auth(
             f"⚠️ Firebase auth log error: {e}"
         )
 
+    # ================= BACKEND =================
+    send_to_backend(
+        user_name=user,
+        method=method,
+        status=result,
+        detail=detail
+    )
+
 
 # ================= ACCESS =================
 def log_access(
@@ -253,6 +308,63 @@ def log_access(
         message
     )
 
+# ================= DOOR STATUS =================
+def update_door_status(status):
+
+    try:
+
+        print(
+            f"[DOOR STATUS] {status}"
+        )
+
+        firebase_update_door_status(
+            status
+        )
+
+        print(
+            "[DOOR STATUS SUCCESS]"
+        )
+
+    except Exception as e:
+
+        print(
+            f"?? Firebase door status error: {e}"
+        )
+
+# ================= AUTH STATE =================
+def update_auth_state(
+
+    current_step,
+    status_text,
+
+    face_attempt=0,
+    fingerprint_attempt=0,
+    rfid_attempt=0,
+
+    access_granted=False,
+    access_denied=False
+):
+
+    try:
+
+        firebase_update_auth_state(
+
+            current_step,
+            status_text,
+
+            face_attempt,
+            fingerprint_attempt,
+            rfid_attempt,
+
+            access_granted,
+            access_denied
+        )
+
+    except Exception as e:
+
+        print(
+            f"?? Auth state error: {e}"
+        )
 
 # ================= TEST =================
 if __name__ == "__main__":

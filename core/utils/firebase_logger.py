@@ -68,3 +68,68 @@ def push_error_log(message):
     db.collection(
         "error_logs"
     ).add(data)
+    
+# ================= DOOR STATUS =================
+def update_door_status(status):
+
+    try:
+
+        data = {
+
+            "status": status,
+            "timestamp": datetime.utcnow()
+        }
+
+        db.collection(
+            "door_status"
+        ).document(
+            "current"
+        ).set(
+            data,
+            merge=True
+        )
+
+        print(
+            f"[FIREBASE] Door status updated: {status}"
+        )
+
+    except Exception as e:
+
+        print(
+            f"[FIREBASE ERROR] {e}"
+        )
+
+# ================= AUTH STATE =================
+def update_auth_state(
+
+    current_step,
+    status_text,
+
+    face_attempt=0,
+    fingerprint_attempt=0,
+    rfid_attempt=0,
+
+    access_granted=False,
+    access_denied=False
+):
+
+    db.collection(
+        "auth_state"
+    ).document(
+        "current"
+    ).set({
+
+        "current_step": current_step,
+        "status_text": status_text,
+
+        "face_attempt": face_attempt,
+        "fingerprint_attempt": fingerprint_attempt,
+        "rfid_attempt": rfid_attempt,
+
+        "access_granted": access_granted,
+        "access_denied": access_denied,
+
+        "timestamp":
+            firestore.SERVER_TIMESTAMP
+
+    }, merge=True)

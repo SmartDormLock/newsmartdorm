@@ -49,6 +49,40 @@ def extract_name(data):
 
     return str(data)
 
+# ================= AUTH STATE =================
+def update_biometric_state(
+
+    current_step,
+    status_text,
+
+    face_attempt=0,
+    fingerprint_attempt=0,
+    rfid_attempt=0,
+
+    access_granted=False,
+    access_denied=False
+):
+
+    try:
+
+        logger.update_auth_state(
+
+            current_step,
+            status_text,
+
+            face_attempt,
+            fingerprint_attempt,
+            rfid_attempt,
+
+            access_granted,
+            access_denied
+        )
+
+    except Exception as e:
+
+        print(
+            f"?? Auth state error: {e}"
+        )
 
 # ================= DOOR SEQUENCE =================
 def door_sequence(name):
@@ -69,9 +103,20 @@ def door_sequence(name):
         "DOOR_OPEN"
     )
 
+    # ================= UPDATE STATUS =================
+    logger.update_door_status(
+        "OPEN"
+    )
+
+    # ================= OPEN DOOR =================
     open_door()
 
-    time.sleep(0.5)
+    time.sleep(3)
+
+    # ================= LOCK AGAIN =================
+    logger.update_door_status(
+        "LOCKED"
+    )
 
     safe_lcd(
         "DOOR LOCKED",
@@ -92,6 +137,14 @@ def door_sequence(name):
 def scan_face_external(attempt):
 
     print("\n📷 Menjalankan Face Recognition...")
+    
+    update_biometric_state(
+
+        "Face Recognition",
+        "Scanning wajah...",
+
+        face_attempt=attempt
+    )
 
     safe_lcd(
         "MODE: FACE",
@@ -162,9 +215,18 @@ def scan_face_external(attempt):
 # ================= RFID =================
 def rfid_verify():
 
-    print("\n📡 Verifikasi RFID...")
+    print("\n?? Verifikasi RFID...")
 
     for attempt in range(1, MAX_ATTEMPT + 1):
+
+        update_biometric_state(
+
+            "RFID Verification",
+            "Tempelkan kartu RFID",
+
+            face_attempt=-1,
+            rfid_attempt=attempt
+        )
 
         safe_lcd(
             "SCAN RFID",
@@ -236,7 +298,16 @@ def mode_face():
 
         if result:
 
-            print(f"🎉 Face dikenali: {result}")
+            print(f"?? Face dikenali: {result}")
+
+            update_biometric_state(
+
+                "RFID Verification",
+                "Tempelkan kartu RFID",
+
+                face_attempt=-1,
+                rfid_attempt=1
+            )
 
             safe_lcd(
                 "FACE OK",
@@ -267,6 +338,14 @@ def mode_face():
                             result,
                             "FACE+RFID",
                             "GRANTED"
+                        )
+
+                        update_biometric_state(
+
+                            "Authentication Complete",
+                            "Akses diterima",
+
+                            access_granted=True
                         )
 
                         door_sequence(result)
@@ -383,7 +462,32 @@ def mode_fingerprint(expected_user=None):
 
     print("\n=== MODE 2: FINGERPRINT + RFID ===")
 
+    update_biometric_state(
+
+        "Fingerprint Authentication",
+        "Tempelkan sidik jari",
+
+        face_attempt=0,
+        fingerprint_attempt=0,
+        rfid_attempt=0,
+
+        access_granted=False,
+        access_denied=False
+    )
+
+    logger.log_system(
+        "Fingerprint mode started"
+    )
+
     for attempt in range(1, MAX_ATTEMPT + 1):
+
+        update_biometric_state(
+
+            "Fingerprint Authentication",
+            "Scanning fingerprint...",
+
+            fingerprint_attempt=attempt
+        )
 
         safe_lcd(
             "MODE: FINGER",
@@ -391,8 +495,40 @@ def mode_fingerprint(expected_user=None):
             f"{attempt}/{MAX_ATTEMPT}"
         )
 
-        result = scan_fingerprint()
+        # ================= SAFE SCAN =================
+        try:
 
+            result = scan_fingerprint()
+
+        except Exception as e:
+
+            print(
+                f"❌ Fingerprint sensor error: {e}"
+            )
+
+            logger.log_error(
+                f"FINGERPRINT SENSOR ERROR: {e}"
+            )
+
+            logger.log_fingerprint(
+                fid="UNKNOWN",
+                status="SENSOR_ERROR"
+            )
+
+            # ================= ERROR BEEP =================
+            error_beep()
+
+            safe_lcd(
+                "FINGER ERROR",
+                "Sensor Failed",
+                ""
+            )
+
+            time.sleep(2)
+
+            return False
+
+        # ================= SUCCESS =================
         if result:
 
             # ================= SCAN BEEP =================
@@ -401,6 +537,15 @@ def mode_fingerprint(expected_user=None):
             print(
                 f"🎉 Fingerprint dikenali: "
                 f"{result}"
+            )
+            
+            update_biometric_state(
+
+                "RFID Verification",
+                "Tempelkan kartu RFID",
+
+                fingerprint_attempt=-1,
+                rfid_attempt=1
             )
 
             # ================= FIX =================
@@ -458,8 +603,10 @@ def mode_fingerprint(expected_user=None):
 
             time.sleep(1)
 
+            # ================= RFID VERIFY =================
             rfid_name = rfid_verify()
 
+            # ================= RFID SUCCESS =================
             if rfid_name:
 
                 if rfid_name == finger_name:
@@ -473,6 +620,14 @@ def mode_fingerprint(expected_user=None):
                         finger_name,
                         "FINGER+RFID",
                         "GRANTED"
+                    )
+
+                    update_biometric_state(
+
+                        "Authentication Complete",
+                        "Akses diterima",
+
+                        access_granted=True
                     )
 
                     door_sequence(
@@ -507,6 +662,7 @@ def mode_fingerprint(expected_user=None):
 
                     return False
 
+            # ================= RFID FAILED =================
             else:
 
                 print("❌ RFID gagal")
@@ -530,6 +686,7 @@ def mode_fingerprint(expected_user=None):
 
                 return False
 
+        # ================= FINGER FAILED =================
         else:
 
             print(
@@ -550,6 +707,13 @@ def mode_fingerprint(expected_user=None):
 
             time.sleep(1)
 
+    # ================= TOTAL FAILED =================
+    logger.log_auth(
+        "UNKNOWN",
+        "FINGERPRINT",
+        "DENIED"
+    )
+
     return False
 
 
@@ -566,6 +730,19 @@ def main():
         "SYSTEM READY",
         "",
         ""
+    )
+    
+    update_biometric_state(
+
+        "Face Recognition",
+        "Menunggu scan wajah dari perangkat",
+
+        face_attempt=0,
+        fingerprint_attempt=0,
+        rfid_attempt=0,
+
+        access_granted=False,
+        access_denied=False
     )
 
     time.sleep(2)
@@ -675,6 +852,14 @@ def main():
         "UNKNOWN",
         "GLOBAL",
         "DENIED"
+    )
+
+    update_biometric_state(
+
+        "Authentication Failed",
+        "Akses ditolak",
+
+        access_denied=True
     )
 
     # ================= ERROR BEEP =================
