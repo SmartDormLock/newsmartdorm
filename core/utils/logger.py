@@ -10,8 +10,8 @@ BACKEND_URL = (
 )
 
 
+# ================= FIREBASE =================
 from core.utils.firebase_logger import (
-    push_access_log,
     push_system_log,
     push_error_log,
     update_door_status as firebase_update_door_status,
@@ -123,7 +123,6 @@ def log_system(message):
         message
     )
 
-    # ================= FIREBASE =================
     try:
 
         push_system_log(message)
@@ -144,7 +143,6 @@ def log_error(message):
         message
     )
 
-    # ================= FIREBASE =================
     try:
 
         push_error_log(message)
@@ -238,6 +236,33 @@ def log_fingerprint(
     )
 
 
+# ================= FORMAT METHOD =================
+def format_method(method):
+
+    method_map = {
+
+        "FACE+RFID":
+            "Face Recognition dan RFID",
+
+        "FINGER+RFID":
+            "Fingerprint dan RFID",
+
+        "FINGERPRINT":
+            "Fingerprint",
+
+        "FACE":
+            "Face Recognition",
+
+        "RFID":
+            "RFID"
+    }
+
+    return method_map.get(
+        method,
+        method
+    )
+
+
 # ================= AUTH =================
 def log_auth(
     user,
@@ -246,9 +271,14 @@ def log_auth(
     detail=""
 ):
 
+    # ================= CLEAN METHOD =================
+    clean_method = format_method(
+        method
+    )
+
     message = (
         f"USER={user} | "
-        f"METHOD={method} | "
+        f"METHOD={clean_method} | "
         f"RESULT={result}"
     )
 
@@ -264,26 +294,10 @@ def log_auth(
         message
     )
 
-    # ================= FIREBASE =================
-    try:
-
-        push_access_log(
-            user,
-            method,
-            result,
-            detail
-        )
-
-    except Exception as e:
-
-        print(
-            f"⚠️ Firebase auth log error: {e}"
-        )
-
-    # ================= BACKEND =================
+    # ================= BACKEND ONLY =================
     send_to_backend(
         user_name=user,
-        method=method,
+        method=clean_method,
         status=result,
         detail=detail
     )
@@ -308,6 +322,7 @@ def log_access(
         message
     )
 
+
 # ================= DOOR STATUS =================
 def update_door_status(status):
 
@@ -328,8 +343,9 @@ def update_door_status(status):
     except Exception as e:
 
         print(
-            f"?? Firebase door status error: {e}"
+            f"⚠️ Firebase door status error: {e}"
         )
+
 
 # ================= AUTH STATE =================
 def update_auth_state(
@@ -363,8 +379,9 @@ def update_auth_state(
     except Exception as e:
 
         print(
-            f"?? Auth state error: {e}"
+            f"⚠️ Auth state error: {e}"
         )
+
 
 # ================= TEST =================
 if __name__ == "__main__":
