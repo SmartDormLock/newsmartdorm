@@ -17,9 +17,7 @@ trigger_ref = db.collection(
     "auth_trigger"
 )
 
-
 last_state = False
-
 
 is_running = False
 
@@ -39,29 +37,31 @@ while True:
             )
 
             # ================= NEW TRIGGER =================
-			if (
-				start_auth is True
-				and last_state is False
-				and is_running is False
-			):
 
-				is_running = True
+            if (
+                start_auth is True
+                and last_state is False
+                and is_running is False
+            ):
+
+                is_running = True
 
                 print(
                     "\n?? Authentication Triggered"
                 )
 
-
                 # ================= RUN AUTH =================
+
                 main()
 
                 # ================= RESET =================
+
                 trigger_ref.set({
 
                     "start_auth": False
 
                 }, merge=True)
-                
+
                 is_running = False
 
             last_state = start_auth
@@ -71,7 +71,7 @@ while True:
     except Exception as e:
 
         print(
-            f"?? Listener Error: {e}"
+            f"? Listener Error: {e}"
         )
 
         time.sleep(2)
