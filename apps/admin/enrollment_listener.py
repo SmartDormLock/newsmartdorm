@@ -1,13 +1,22 @@
+import sys
+sys.stdout.reconfigure(encoding="utf-8")
+
 import time
 
 from core.utils.firebase_logger import db
+
+import core.utils.logger as logger
 
 from apps.admin.revisi_enroll_user import (
     auto_enroll
 )
 
 print(
-    "\n?? Enrollment Listener Started"
+    "\n🚀 Enrollment Listener Started"
+)
+
+logger.log_system(
+    "Enrollment listener started"
 )
 
 # ============================================
@@ -60,7 +69,11 @@ while True:
                 is_running = True
 
                 print(
-                    "\n?? Enrollment Triggered"
+                    "\n🚀 Enrollment Triggered"
+                )
+
+                logger.log_system(
+                    "Enrollment triggered"
                 )
 
                 # ====================================
@@ -76,8 +89,18 @@ while True:
                 )
 
                 print(
-                    f"\n?? USER : {user_name}"
+                    f"\n👤 USER : {user_name}"
                 )
+
+                # ====================================
+                # VALIDATION
+                # ====================================
+
+                if not user_uid or not user_name:
+
+                    raise Exception(
+                        "UID atau nama user kosong"
+                    )
 
                 # ====================================
                 # UPDATE STATUS
@@ -86,9 +109,19 @@ while True:
                 trigger_ref.set({
 
                     "status":
-                        "processing"
+                        "processing",
+
+                    "error":
+                        "",
+
+                    "updated_at":
+                        time.time()
 
                 }, merge=True)
+
+                logger.log_system(
+                    f"Enrollment processing for {user_name}"
+                )
 
                 # ====================================
                 # RUN AUTO ENROLL
@@ -113,6 +146,10 @@ while True:
 
                 })
 
+                logger.log_system(
+                    f"User activated: {user_name}"
+                )
+
                 # ====================================
                 # RESET TRIGGER
                 # ====================================
@@ -123,15 +160,39 @@ while True:
                         False,
 
                     "status":
-                        "success"
+                        "success",
+
+                    "error":
+                        "",
+
+                    "updated_at":
+                        time.time()
 
                 }, merge=True)
 
                 print(
-                    "\n?? Enrollment Success"
+                    "\n✅ Enrollment Success"
+                )
+
+                logger.log_system(
+                    f"Enrollment success: {user_name}"
                 )
 
                 is_running = False
+
+                # ====================================
+                # CLOSE PROGRAM
+                # ====================================
+
+                print(
+                    "\n🛑 Closing enrollment listener..."
+                )
+
+                logger.log_system(
+                    "Enrollment listener closed"
+                )
+
+                sys.exit(0)
 
             last_state = start_enrollment
 
@@ -140,18 +201,33 @@ while True:
     except Exception as e:
 
         print(
-            f"\n? Enrollment Listener Error: {e}"
+            f"\n❌ Enrollment Listener Error: {e}"
         )
 
-        trigger_ref.set({
+        logger.log_error(
+            f"Enrollment listener error: {e}"
+        )
 
-            "status":
-                "failed",
+        try:
 
-            "error":
-                str(e)
+            trigger_ref.set({
 
-        }, merge=True)
+                "status":
+                    "failed",
+
+                "error":
+                    str(e),
+
+                "updated_at":
+                    time.time()
+
+            }, merge=True)
+
+        except Exception as firebase_error:
+
+            print(
+                f"\n❌ Firebase update failed: {firebase_error}"
+            )
 
         is_running = False
 

@@ -18,6 +18,11 @@ from core.utils.firebase_logger import (
     update_auth_state as firebase_update_auth_state
 )
 
+from core.utils.firebase_logger import (
+    push_system_log,
+    push_error_log,
+    push_enrollment_log,
+)
 
 # ================= CONFIG =================
 LOG_DIR = "logs"
@@ -324,27 +329,22 @@ def log_access(
 
 
 # ================= DOOR STATUS =================
-def update_door_status(status):
+def update_door_status(
 
-    try:
+    building,
+    room,
+    status,
+    user_name=""
+):
 
-        print(
-            f"[DOOR STATUS] {status}"
-        )
+    firebase_update_door_status(
 
-        firebase_update_door_status(
-            status
-        )
+        building,
+        room,
+        status,
 
-        print(
-            "[DOOR STATUS SUCCESS]"
-        )
-
-    except Exception as e:
-
-        print(
-            f"⚠️ Firebase door status error: {e}"
-        )
+        user_name
+    )
 
 
 # ================= AUTH STATE =================
@@ -380,6 +380,74 @@ def update_auth_state(
 
         print(
             f"⚠️ Auth state error: {e}"
+        )
+        
+# ================= ENROLLMENT =================
+def log_enrollment(
+
+    user,
+    step,
+    status,
+    detail=""
+):
+
+    message = (
+        f"USER={user} | "
+        f"STEP={step} | "
+        f"STATUS={status}"
+    )
+
+    if detail:
+
+        message += (
+            f" | DETAIL={detail}"
+        )
+
+    write_log(
+        ACCESS_LOG,
+        "ENROLL",
+        message
+    )
+
+    # ================= FIREBASE =================
+    try:
+
+        push_enrollment_log(
+
+            user_name=user,
+            step=step,
+            status=status,
+            detail=detail
+        )
+
+    except Exception as e:
+
+        print(
+            f"?? Firebase enrollment log error: {e}"
+        )
+
+    # ================= BACKEND =================
+    try:
+
+        requests.post(
+
+            f"{BACKEND_URL}/api/device/enrollment",
+
+            json={
+
+                "user_name": user,
+                "step": step,
+                "status": status,
+                "detail": detail
+            },
+
+            timeout=10
+        )
+
+    except Exception as e:
+
+        print(
+            f"[ENROLL BACKEND FAILED] {e}"
         )
 
 

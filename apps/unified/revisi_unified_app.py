@@ -6,6 +6,10 @@ from core.auth.rfid_auth import scan_rfid
 from core.hardware.relay import open_door
 from core.hardware.lcd import lcd_write
 
+from core.auth.user_firestore import (
+    get_user_room_data
+)
+
 # ================= BUZZER =================
 from core.hardware.buzzer import (
     success_beep,
@@ -103,9 +107,27 @@ def door_sequence(name):
         "DOOR_OPEN"
     )
 
+    room_data = get_user_room_data(
+        name
+    )
+
+    building = (
+        room_data["building"]
+    )
+
+    room = (
+        room_data["room"]
+    )
+
     # ================= UPDATE STATUS =================
     logger.update_door_status(
-        "OPEN"
+
+        building,
+        room,
+
+        "OPEN",
+
+        user_name=name
     )
 
     # ================= OPEN DOOR =================
@@ -115,7 +137,13 @@ def door_sequence(name):
 
     # ================= LOCK AGAIN =================
     logger.update_door_status(
-        "LOCKED"
+
+        building,
+        room,
+
+        "LOCKED",
+
+        user_name=name
     )
 
     safe_lcd(

@@ -70,27 +70,47 @@ def push_error_log(message):
     ).add(data)
     
 # ================= DOOR STATUS =================
-def update_door_status(status):
+def update_door_status(
+
+    building,
+    room,
+    status,
+    user_name=""
+):
 
     try:
 
+        room_id = (
+            f"{building}_{room}"
+        )
+
         data = {
 
+            "building": building,
+            "room": room,
+
             "status": status,
-            "timestamp": datetime.utcnow()
+
+            "last_user": user_name,
+
+            "timestamp":
+                datetime.utcnow()
         }
 
         db.collection(
             "door_status"
         ).document(
-            "current"
+            room_id
         ).set(
             data,
             merge=True
         )
 
         print(
-            f"[FIREBASE] Door status updated: {status}"
+
+            "[FIREBASE] "
+            f"Door status updated: "
+            f"{room_id} -> {status}"
         )
 
     except Exception as e:
@@ -133,3 +153,25 @@ def update_auth_state(
             firestore.SERVER_TIMESTAMP
 
     }, merge=True)
+
+# ================= ENROLLMENT LOG =================
+def push_enrollment_log(
+
+    user_name,
+    step,
+    status,
+    detail=""
+):
+
+    data = {
+
+        "user_name": user_name,
+        "step": step,
+        "status": status,
+        "detail": detail,
+        "timestamp": datetime.utcnow()
+    }
+
+    db.collection(
+        "enrollment_logs"
+    ).add(data)

@@ -25,6 +25,7 @@ from core.hardware.fingerprint import (
     FingerprintSensor
 )
 
+import core.utils.logger as logger
 
 # ================= FACE ENV =================
 FACE_PY = (
@@ -320,6 +321,17 @@ def auto_enroll():
         print("\n❌ Nama tidak boleh kosong")
 
         return
+        
+    # ================= LOGGER =================
+    logger.log_system(
+        "Auto enrollment started"
+    )
+
+    logger.log_auth(
+        name,
+        "AUTO_ENROLL",
+        "STARTED"
+    )
 
     # ================= FACE DATASET =================
     print("\n================================")
@@ -338,12 +350,34 @@ def auto_enroll():
             check=True
         )
 
+        logger.log_auth(
+            name,
+            "FACE_DATASET",
+            "SUCCESS"
+        )
+
+        logger.log_system(
+            f"Face dataset success for {name}"
+        )
+
     except Exception as e:
 
         print("\n❌ Face dataset failed")
         print(e)
 
+        logger.log_auth(
+            name,
+            "FACE_DATASET",
+            "FAILED",
+            str(e)
+        )
+
+        logger.log_error(
+            f"FACE DATASET ERROR: {e}"
+        )
+
         return
+
 
     # ================= FACE TRAIN =================
     print("\n================================")
@@ -360,11 +394,32 @@ def auto_enroll():
             ],
             check=True
         )
+        
+        logger.log_auth(
+            name,
+            "FACE_TRAINING",
+            "SUCCESS"
+        )
+
+        logger.log_system(
+            f"Face training success for {name}"
+        )
 
     except Exception as e:
 
         print("\n❌ Face training failed")
         print(e)
+        
+        logger.log_auth(
+            name,
+            "FACE_TRAINING",
+            "FAILED",
+            str(e)
+        )
+
+        logger.log_error(
+            f"FACE TRAINING ERROR: {e}"
+        )
 
         return
 
@@ -379,11 +434,34 @@ def auto_enroll():
 
         print("\n❌ RFID enrollment failed")
 
+        logger.log_auth(
+            name,
+            "RFID_ENROLL",
+            "FAILED"
+        )
+
+        logger.log_error(
+            f"RFID enrollment failed for {name}"
+        )
+
         return
 
     rfid_uid = rfid_data["uid"]
 
     print(f"\n✅ RFID UID : {rfid_uid}")
+
+    logger.log_rfid(
+        uid=rfid_uid,
+        user=name,
+        status="ENROLLED"
+    )
+
+    logger.log_auth(
+        name,
+        "RFID_ENROLL",
+        "SUCCESS",
+        f"UID={rfid_uid}"
+    )
 
     # ================= FINGERPRINT =================
     print("\n================================")
@@ -396,12 +474,35 @@ def auto_enroll():
 
         print("\n❌ Fingerprint enrollment failed")
 
+        logger.log_auth(
+            name,
+            "FINGERPRINT_ENROLL",
+            "FAILED"
+        )
+
+        logger.log_error(
+            f"Fingerprint enrollment failed for {name}"
+        )
+
         return
 
     # ================= SAVE RFID =================
     save_rfid_user(
         rfid_uid,
         name
+    )
+
+    logger.log_fingerprint(
+        fid=fid,
+        user=name,
+        status="ENROLLED"
+    )
+
+    logger.log_auth(
+        name,
+        "FINGERPRINT_ENROLL",
+        "SUCCESS",
+        f"FID={fid}"
     )
 
     # ================= SAVE FINGERPRINT =================
@@ -412,6 +513,16 @@ def auto_enroll():
 
     if not fp_saved:
 
+        logger.log_auth(
+            name,
+            "SAVE_FINGERPRINT",
+            "FAILED"
+        )
+
+        logger.log_error(
+            f"Save fingerprint failed for {name}"
+        )
+
         return
 
     # ================= MASTER USER =================
@@ -420,7 +531,28 @@ def auto_enroll():
         rfid_uid,
         fid
     )
+    
+    logger.log_system(
+        f"Master user created: {name}"
+    )
 
+
+    logger.log_auth(
+        name,
+        "AUTO_ENROLL",
+        "SUCCESS"
+    )
+
+    logger.log_access(
+        name,
+        "SUCCESS",
+        "AUTO_ENROLL"
+    )
+
+    logger.log_system(
+        f"Auto enrollment completed for {name}"
+    )
+    
     # ================= FINISH =================
     print("\n================================")
     print("      AUTO ENROLL SUCCESS")
