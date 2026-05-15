@@ -7,7 +7,7 @@ from core.utils.firebase_logger import db
 
 import core.utils.logger as logger
 
-from apps.admin.revisi_enroll_user import (
+from apps.admin.enroll.revisi_enroll_user import (
     auto_enroll
 )
 

@@ -404,20 +404,39 @@ def auto_enroll(user_name):
             check=True
         )
 
-    logger.log_enrollment(
+        logger.log_enrollment(
 
-        user=name,
+            user=name,
 
-        step="FACE_DATASET",
+            step="FACE_DATASET",
 
-        status="SUCCESS",
+            status="SUCCESS",
 
-        detail="Face dataset saved"
-    )
+            detail="Face dataset saved"
+        )
 
         logger.log_system(
             f"Face dataset success for {name}"
         )
+
+    except Exception as e:
+
+        logger.log_enrollment(
+
+            user=name,
+
+            step="FACE_DATASET",
+
+            status="FAILED",
+
+            detail=str(e)
+        )
+
+        logger.log_error(
+            f"Face dataset failed: {e}"
+        )
+
+        raise
 
     except Exception as e:
 
