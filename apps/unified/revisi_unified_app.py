@@ -830,7 +830,16 @@ def main():
                 return
 
             # ================= FAILED =================
-            print("\n⛔ AKSES DITOLAK")
+            print("\n? AKSES DITOLAK")
+
+            update_biometric_state(
+
+                "Authentication Failed",
+                "Akses ditolak",
+
+                access_granted=False,
+                access_denied=True
+            )
 
             logger.log_auth(
                 expected_user,
@@ -840,6 +849,16 @@ def main():
 
             # ================= ERROR BEEP =================
             error_beep()
+
+            safe_lcd(
+                "ACCESS DENIED",
+                "Fingerprint Failed",
+                ""
+            )
+
+            time.sleep(2)
+
+            return
 
             safe_lcd(
                 "ACCESS DENIED",
