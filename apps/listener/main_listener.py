@@ -3,6 +3,8 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 import time
 
+from threading import Thread
+
 from core.utils.firebase_logger import db
 
 import core.utils.logger as logger
@@ -16,6 +18,16 @@ from apps.unified.revisi_unified_app import (
 )
 
 # =========================
+# EXIT SENSOR
+# =========================
+
+import apps.ultrasonic.sensor_exit as exit_sensor
+
+from apps.ultrasonic.sensor_exit import (
+    inside_exit_loop
+)
+
+# =========================
 # ENROLL
 # =========================
 
@@ -23,11 +35,27 @@ from apps.admin.enroll.revisi_enroll_user import (
     auto_enroll
 )
 
+# =========================
+# START
+# =========================
+
 print("\n🚀 SmartDorm Main Listener Started")
 
 logger.log_system(
     "Main listener started"
 )
+
+# ====================================
+# START INSIDE EXIT THREAD
+# ====================================
+
+Thread(
+
+    target=inside_exit_loop,
+
+    daemon=True
+
+).start()
 
 # ====================================
 # FIRESTORE REFERENCES
@@ -97,6 +125,16 @@ while True:
 
                 try:
 
+                    # ====================================
+                    # DISABLE EXIT SENSOR
+                    # ====================================
+
+                    exit_sensor.EXIT_ENABLED = False
+
+                    print(
+                        "🚫 Exit sensor paused"
+                    )
+
                     # =========================
                     # RUN AUTH
                     # =========================
@@ -131,6 +169,18 @@ while True:
                         f"Auth error: {e}"
                     )
 
+                finally:
+
+                    # ====================================
+                    # ENABLE EXIT SENSOR
+                    # ====================================
+
+                    exit_sensor.EXIT_ENABLED = True
+
+                    print(
+                        "✅ Exit sensor resumed"
+                    )
+
                 is_running = False
 
         # ====================================
@@ -161,6 +211,16 @@ while True:
                 )
 
                 try:
+
+                    # ====================================
+                    # DISABLE EXIT SENSOR
+                    # ====================================
+
+                    exit_sensor.EXIT_ENABLED = False
+
+                    print(
+                        "🚫 Exit sensor paused"
+                    )
 
                     # =========================
                     # GET USER DATA
@@ -247,6 +307,18 @@ while True:
                         "error": str(e)
 
                     }, merge=True)
+
+                finally:
+
+                    # ====================================
+                    # ENABLE EXIT SENSOR
+                    # ====================================
+
+                    exit_sensor.EXIT_ENABLED = True
+
+                    print(
+                        "✅ Exit sensor resumed"
+                    )
 
                 is_running = False
 
