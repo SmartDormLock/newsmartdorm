@@ -120,7 +120,7 @@ def safe_read_uid(timeout=10):
                     time.sleep(1)
                     continue
 
-            uid = reader.read_uid()
+            uid = reader.read_uid(timeout=2)
 
             # ================= INVALID =================
             if not uid:

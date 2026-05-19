@@ -2,10 +2,12 @@ import subprocess
 import time
 
 from core.auth.fingerprint_auth import scan_fingerprint
-from core.auth.rfid_auth import scan_rfid
 from core.hardware.relay import open_door
 from core.hardware.lcd import lcd_write
-
+from core.auth.rfid_auth import (
+    scan_rfid,
+    reset_reader
+)
 from core.auth.user_firestore import (
     get_user_room_data
 )
@@ -665,7 +667,7 @@ def mode_fingerprint(expected_user=None):
                     door_sequence(
                         finger_name
                     )
-
+                   
                     return True
 
                 else:
