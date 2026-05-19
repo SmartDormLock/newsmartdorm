@@ -1,37 +1,28 @@
 import time
-import threading
 
-from config.firebase.firebase_config import db
+from core.utils.firebase_logger import db
+
+from core.hardware.relay import (
+    open_door
+)
 
 # ============================================
-# DOOR RELAY CONTROL
+# STATE
 # ============================================
 
-# TODO:
-# Ganti dengan relay GPIO asli nanti
-
-def unlock_door():
-
-    print("\n================================")
-    print("EMERGENCY UNLOCK ACTIVATED")
-    print("DOOR OPEN")
-    print("================================\n")
-
-    # SIMULASI RELAY ON
-    time.sleep(5)
-
-    print("\n================================")
-    print("DOOR LOCKED AGAIN")
-    print("================================\n")
-
+is_unlocking = False
 
 # ============================================
 # FIRESTORE LISTENER
 # ============================================
 
-def on_snapshot(doc_snapshot,
-                changes,
-                read_time):
+def on_snapshot(
+    doc_snapshot,
+    changes,
+    read_time
+):
+
+    global is_unlocking
 
     for doc in doc_snapshot:
 
@@ -46,44 +37,63 @@ def on_snapshot(doc_snapshot,
         # EMERGENCY UNLOCK
         # ====================================
 
-        if emergency_unlock:
+        if (
+            emergency_unlock is True
+            and not is_unlocking
+        ):
+
+            is_unlocking = True
 
             print(
                 "\n[DOOR LISTENER] Emergency unlock received"
             )
 
+            # ====================================
             # UPDATE STATUS
+            # ====================================
+
             db.collection(
                 "door_status"
             ).document(
                 "current"
             ).set({
 
-                "status": "UNLOCKED",
+                "status":
+                    "UNLOCKED",
 
                 "timestamp":
                     time.time(),
 
             })
 
-            # UNLOCK DOOR
-            unlock_door()
+            # ====================================
+            # OPEN DOOR
+            # ====================================
 
+            open_door()
+
+            # ====================================
             # LOCK AGAIN
+            # ====================================
+
             db.collection(
                 "door_status"
             ).document(
                 "current"
             ).set({
 
-                "status": "LOCKED",
+                "status":
+                    "LOCKED",
 
                 "timestamp":
                     time.time(),
 
             })
 
+            # ====================================
             # RESET FIREBASE FLAG
+            # ====================================
+
             db.collection(
                 "system_control"
             ).document(
@@ -99,6 +109,8 @@ def on_snapshot(doc_snapshot,
                 "[DOOR LISTENER] Reset complete"
             )
 
+            is_unlocking = False
+
 
 # ============================================
 # START LISTENER
@@ -111,7 +123,7 @@ def start_door_listener():
     )
 
     # ========================================
-    # INIT DOCUMENT IF NOT EXISTS
+    # FIRESTORE REFERENCE
     # ========================================
 
     doc_ref = db.collection(
@@ -119,6 +131,10 @@ def start_door_listener():
     ).document(
         "main_door"
     )
+
+    # ========================================
+    # INIT DOCUMENT
+    # ========================================
 
     doc = doc_ref.get()
 
@@ -136,15 +152,37 @@ def start_door_listener():
         )
 
     # ========================================
+    # INIT DOOR STATUS
+    # ========================================
+
+    status_ref = db.collection(
+        "door_status"
+    ).document(
+        "current"
+    )
+
+    status_doc = status_ref.get()
+
+    if not status_doc.exists:
+
+        status_ref.set({
+
+            "status":
+                "LOCKED",
+
+            "timestamp":
+                time.time(),
+
+        })
+
+    # ========================================
     # START REALTIME LISTENER
     # ========================================
 
-    doc_watch = doc_ref.on_snapshot(
+    doc_ref.on_snapshot(
         on_snapshot
     )
 
     print(
         "[DOOR LISTENER] Listening realtime..."
     )
-
-    return doc_watch

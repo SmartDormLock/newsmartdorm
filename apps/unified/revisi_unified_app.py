@@ -10,6 +10,10 @@ from core.auth.user_firestore import (
     get_user_room_data
 )
 
+from core.utils.door_listener import (
+    start_door_listener
+)
+
 # ================= BUZZER =================
 from core.hardware.buzzer import (
     success_beep,
@@ -744,6 +748,11 @@ def mode_fingerprint(expected_user=None):
 
     return False
 
+# ====================================
+# START FIREBASE LISTENER
+# ====================================
+
+start_door_listener()
 
 # ================= MAIN =================
 def main():
