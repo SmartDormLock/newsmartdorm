@@ -7,18 +7,32 @@ from core.hardware.rfid import RFIDReader
 
 DATA_FILE = "data/rfid/cards.txt"
 
+# ============================================
+# GLOBAL RFID READER
+# ============================================
+
 reader = None
 
-# ================= INIT =================
+
+# ============================================
+# INIT RFID READER
+# ============================================
+
 def init_reader():
 
     global reader
 
     try:
 
-        if reader is None:
+        # ================= ALREADY INIT =================
+        if reader is not None:
+            return True
 
-            reader = RFIDReader()
+        reader = RFIDReader()
+
+        print("✅ RFID reader initialized")
+
+        return True
 
     except Exception as e:
 
@@ -26,24 +40,62 @@ def init_reader():
 
         reader = None
 
-# ================= RESET READER =================
+        return False
+
+
+# ============================================
+# RESET RFID READER
+# ============================================
 def reset_reader():
 
     global reader
 
     try:
 
-        reader = RFIDReader()
+        print("?? Resetting RFID reader...")
 
-        print("🔄 RFID reader reconnected")
+        # ================= CLEANUP OLD READER =================
+        if reader is not None:
+
+            try:
+
+                print("?? Cleaning old RFID reader...")
+
+                reader.reader.cleanup()
+
+            except Exception as e:
+
+                print(f"?? Cleanup warning: {e}")
+
+        # ================= RELEASE OBJECT =================
+        reader = None
+
+        # ================= WAIT RELEASE =================
+        time.sleep(1)
+
+        # ================= RE-INIT =================
+        if init_reader():
+
+            print("? RFID reader reset success")
+
+            return True
+
+        print("? RFID reader reset failed")
+
+        return False
 
     except Exception as e:
 
-        print(f"❌ RFID reconnect gagal: {e}")
+        print(f"? RFID reconnect gagal: {e}")
 
         reader = None
 
-# ================= LOAD =================
+        return False
+
+# ============================================
+# LOAD RFID CARDS
+# ============================================
+
 def load_cards():
 
     cards = {}
@@ -73,7 +125,11 @@ def load_cards():
 
     return cards
 
-# ================= SAVE =================
+
+# ============================================
+# SAVE RFID CARDS
+# ============================================
+
 def save_cards(cards):
 
     try:
@@ -88,12 +144,20 @@ def save_cards(cards):
 
         print(f"❌ Gagal save cards: {e}")
 
-# ================= UID CONVERT =================
+
+# ============================================
+# UID TO STRING
+# ============================================
+
 def uid_to_string(uid):
 
     return "".join(str(x) for x in uid)
 
-# ================= SAFE READ UID =================
+
+# ============================================
+# SAFE READ UID
+# ============================================
+
 def safe_read_uid(timeout=10):
 
     global reader
@@ -111,21 +175,25 @@ def safe_read_uid(timeout=10):
 
         try:
 
+            # ================= INIT READER =================
             if reader is None:
 
-                init_reader()
+                print("📡 Initializing RFID reader...")
 
-                if reader is None:
+                if not init_reader():
 
                     time.sleep(1)
                     continue
 
+            # ================= DEBUG =================
+            print("🔍 Reading RFID...")
+
             uid = reader.read_uid(timeout=2)
 
-            # ================= INVALID =================
+            # ================= EMPTY UID =================
             if not uid:
 
-                time.sleep(0.1)
+                time.sleep(0.2)
                 continue
 
             return uid
@@ -134,16 +202,26 @@ def safe_read_uid(timeout=10):
 
             print(f"❌ RFID read error: {e}")
 
-            reset_reader()
+            # CLEAN RESET STATE
+            reader = None
 
-            time.sleep(0.5)
+            time.sleep(1)
 
-# ================= SCAN LOGIN =================
+
+# ============================================
+# SCAN RFID LOGIN
+# ============================================
+
 def scan_rfid(timeout=10):
 
     cards = load_cards()
 
     print("📡 Tempelkan kartu...")
+
+    # RFID WAKE DELAY
+    time.sleep(0.3)
+    
+    reset_reader()
 
     uid = safe_read_uid(timeout)
 
@@ -158,6 +236,7 @@ def scan_rfid(timeout=10):
 
         print(f"UID: {uid_str}")
 
+        # ================= VALID CARD =================
         if uid_str in cards:
 
             print("✅ RFID dikenali")
@@ -178,12 +257,18 @@ def scan_rfid(timeout=10):
 
         return None
 
-# ================= SCAN NEW RFID =================
+
+# ============================================
+# SCAN NEW RFID
+# ============================================
+
 def scan_new_rfid(timeout=10):
 
     cards = load_cards()
 
     print("📡 Tempelkan kartu baru...")
+
+    time.sleep(0.3)
 
     uid = safe_read_uid(timeout)
 
@@ -218,7 +303,11 @@ def scan_new_rfid(timeout=10):
 
         return None
 
-# ================= ENROLL MANUAL =================
+
+# ============================================
+# ENROLL RFID
+# ============================================
+
 def enroll_rfid():
 
     cards = load_cards()
@@ -262,14 +351,17 @@ def enroll_rfid():
         print("✅ Kartu berhasil didaftarkan!")
 
         print(f"UID  : {uid_str}")
-
         print(f"Nama : {name}")
 
     except Exception as e:
 
         print(f"❌ Error enroll RFID: {e}")
 
-# ================= DELETE =================
+
+# ============================================
+# DELETE RFID
+# ============================================
+
 def delete_rfid():
 
     cards = load_cards()
@@ -290,7 +382,11 @@ def delete_rfid():
 
         print("❌ UID tidak ditemukan")
 
-# ================= LIST =================
+
+# ============================================
+# LIST RFID
+# ============================================
+
 def list_rfid():
 
     cards = load_cards()

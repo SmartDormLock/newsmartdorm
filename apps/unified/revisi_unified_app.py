@@ -1,13 +1,11 @@
+import os
 import subprocess
 import time
 
 from core.auth.fingerprint_auth import scan_fingerprint
 from core.hardware.relay import open_door
 from core.hardware.lcd import lcd_write
-from core.auth.rfid_auth import (
-    scan_rfid,
-    reset_reader
-)
+from core.auth.rfid_auth import scan_rfid
 from core.auth.user_firestore import (
     get_user_room_data
 )
@@ -15,6 +13,7 @@ from core.auth.user_firestore import (
 from core.utils.door_listener import (
     start_door_listener
 )
+
 
 # ================= BUZZER =================
 from core.hardware.buzzer import (
@@ -165,12 +164,11 @@ def door_sequence(name):
         "",
         ""
     )
-
-
+    
 # ================= FACE =================
 def scan_face_external(attempt):
 
-    print("\n📷 Menjalankan Face Recognition...")
+    print("\n?? Menjalankan Face Recognition...")
     
     update_biometric_state(
 
@@ -198,6 +196,8 @@ def scan_face_external(attempt):
             capture_output=True,
             text=True
         )
+        
+        time.sleep(2)
 
         output = (
             (result.stdout or "")
@@ -232,7 +232,7 @@ def scan_face_external(attempt):
 
     except Exception as e:
 
-        print("❌ Face error:", e)
+        print("? Face error:", e)
 
         logger.log_error(
             f"FACE ERROR: {e}"
