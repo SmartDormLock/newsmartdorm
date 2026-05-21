@@ -1,11 +1,10 @@
 import sys
-sys.stdout.reconfigure(encoding="utf-8")
-
 import os
 import time
 import subprocess
-
 import adafruit_fingerprint
+import core.utils.logger as logger
+sys.stdout.reconfigure(encoding="utf-8")
 
 from core.auth.rfid_auth import (
     scan_new_rfid,
@@ -25,8 +24,11 @@ from core.hardware.fingerprint import (
     FingerprintSensor
 )
 
-import core.utils.logger as logger
+from core.system.system_state import (
 
+    start_enroll,
+    stop_enroll
+)
 
 # ================= FACE ENV =================
 FACE_PY = (
@@ -355,206 +357,235 @@ def enroll_fingerprint_auto():
 
 # ================= AUTO ENROLL =================
 def auto_enroll(user_name):
-
-    print("\n================================")
-    print("       AUTO ENROLL USER")
-    print("================================")
-
-    # ================= USER NAME =================
-    name = user_name.strip()
-
-    if not name:
-
-        print("\n❌ Nama tidak boleh kosong")
-
-        return
-
-    print(f"\n👤 USER : {name}")
-
-    # ================= LOGGER =================
-    logger.log_system(
-        "Auto enrollment started"
-    )
-
-    logger.log_enrollment(
-
-        user=name,
-
-        step="AUTO_ENROLL",
-
-        status="STARTED",
-
-        detail="Enrollment started"
-    )
-
-    # ================= FACE DATASET =================
-    print("\n================================")
-    print(" FACE DATASET CAPTURE")
-    print("================================")
-
+    
+    start_enroll()
     try:
 
-        subprocess.run(
-            [
-                FACE_PY,
-                "-m",
-                FACE_DATASET_MODULE,
-                name
-            ],
-            check=True
-        )
+        print("\n================================")
+        print("       AUTO ENROLL USER")
+        print("================================")
 
-        logger.log_enrollment(
+        # ================= USER NAME =================
+        name = user_name.strip()
 
-            user=name,
+        if not name:
 
-            step="FACE_DATASET",
+            print("\n❌ Nama tidak boleh kosong")
 
-            status="SUCCESS",
+            return
 
-            detail="Face dataset saved"
-        )
+        print(f"\n👤 USER : {name}")
 
+        # ================= LOGGER =================
         logger.log_system(
-            f"Face dataset success for {name}"
-        )
-
-    except Exception as e:
-
-        logger.log_enrollment(
-
-            user=name,
-
-            step="FACE_DATASET",
-
-            status="FAILED",
-
-            detail=str(e)
-        )
-
-        logger.log_error(
-            f"Face dataset failed: {e}"
-        )
-
-        raise
-
-    except Exception as e:
-
-        print("\n❌ Face dataset failed")
-        print(e)
-
-        logger.log_enrollment(
-
-            user=name,
-
-            step="FACE_DATASET",
-
-            status="FAILED",
-
-            detail=str(e)
-        )
-
-        logger.log_error(
-            f"FACE DATASET ERROR: {e}"
-        )
-
-        return
-
-    # ================= FACE TRAIN =================
-    print("\n================================")
-    print(" FACE TRAINING")
-    print("================================")
-
-    try:
-
-        subprocess.run(
-            [
-                FACE_PY,
-                "-m",
-                FACE_TRAIN_MODULE
-            ],
-            check=True
+            "Auto enrollment started"
         )
 
         logger.log_enrollment(
 
             user=name,
 
-            step="FACE_TRAINING",
+            step="AUTO_ENROLL",
 
-            status="SUCCESS",
+            status="STARTED",
 
-            detail="Face training completed"
+            detail="Enrollment started"
         )
 
-        logger.log_system(
-            f"Face training success for {name}"
+        # ================= FACE DATASET =================
+        print("\n================================")
+        print(" FACE DATASET CAPTURE")
+        print("================================")
+
+        try:
+
+            subprocess.run(
+                [
+                    FACE_PY,
+                    "-m",
+                    FACE_DATASET_MODULE,
+                    name
+                ],
+                check=True
+            )
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="FACE_DATASET",
+
+                status="SUCCESS",
+
+                detail="Face dataset saved"
+            )
+
+            logger.log_system(
+                f"Face dataset success for {name}"
+            )
+
+        except Exception as e:
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="FACE_DATASET",
+
+                status="FAILED",
+
+                detail=str(e)
+            )
+
+            logger.log_error(
+                f"Face dataset failed: {e}"
+            )
+
+            return
+
+        # ================= FACE TRAIN =================
+        print("\n================================")
+        print(" FACE TRAINING")
+        print("================================")
+
+        try:
+
+            subprocess.run(
+                [
+                    FACE_PY,
+                    "-m",
+                    FACE_TRAIN_MODULE
+                ],
+                check=True
+            )
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="FACE_TRAINING",
+
+                status="SUCCESS",
+
+                detail="Face training completed"
+            )
+
+            logger.log_system(
+                f"Face training success for {name}"
+            )
+
+        except Exception as e:
+
+            print("\n❌ Face training failed")
+            print(e)
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="FACE_TRAINING",
+
+                status="FAILED",
+
+                detail=str(e)
+            )
+
+            logger.log_error(
+                f"FACE TRAINING ERROR: {e}"
+            )
+
+            return
+
+        # ================= RFID =================
+        print("\n================================")
+        print(" RFID ENROLLMENT")
+        print("================================")
+
+        rfid_data = scan_new_rfid()
+
+        if not rfid_data:
+
+            print("\n❌ RFID enrollment failed")
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="RFID",
+
+                status="FAILED",
+
+                detail="RFID enrollment failed"
+            )
+
+            logger.log_error(
+                f"RFID enrollment failed for {name}"
+            )
+
+            return
+
+        rfid_uid = rfid_data["uid"]
+
+        print(f"\n✅ RFID UID : {rfid_uid}")
+
+        # ================= FINGERPRINT =================
+        print("\n================================")
+        print(" FINGERPRINT ENROLLMENT")
+        print("================================")
+
+        fid = enroll_fingerprint_auto()
+
+        if not fid:
+
+            print("\n❌ Fingerprint enrollment failed")
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="FINGERPRINT",
+
+                status="FAILED",
+
+                detail="Fingerprint enrollment failed"
+            )
+
+            logger.log_error(
+                f"Fingerprint enrollment failed for {name}"
+            )
+
+            return
+
+        # ================= SAVE FINGERPRINT FIRST =================
+        fp_saved = save_fingerprint_user(
+            fid,
+            name
         )
 
-    except Exception as e:
+        if not fp_saved:
 
-        print("\n❌ Face training failed")
-        print(e)
+            logger.log_enrollment(
 
-        logger.log_enrollment(
+                user=name,
 
+                step="SAVE_FINGERPRINT",
+
+                status="FAILED",
+
+                detail="Save fingerprint failed"
+            )
+
+            logger.log_error(
+                f"Save fingerprint failed for {name}"
+            )
+
+            return
+
+        logger.log_fingerprint(
+            fid=fid,
             user=name,
-
-            step="FACE_TRAINING",
-
-            status="FAILED",
-
-            detail=str(e)
+            status="ENROLLED"
         )
-
-        logger.log_error(
-            f"FACE TRAINING ERROR: {e}"
-        )
-
-        return
-
-    # ================= RFID =================
-    print("\n================================")
-    print(" RFID ENROLLMENT")
-    print("================================")
-
-    rfid_data = scan_new_rfid()
-
-    if not rfid_data:
-
-        print("\n❌ RFID enrollment failed")
-
-        logger.log_enrollment(
-
-            user=name,
-
-            step="RFID",
-
-            status="FAILED",
-
-            detail="RFID enrollment failed"
-        )
-
-        logger.log_error(
-            f"RFID enrollment failed for {name}"
-        )
-
-        return
-
-    rfid_uid = rfid_data["uid"]
-
-    print(f"\n✅ RFID UID : {rfid_uid}")
-
-    # ================= FINGERPRINT =================
-    print("\n================================")
-    print(" FINGERPRINT ENROLLMENT")
-    print("================================")
-
-    fid = enroll_fingerprint_auto()
-
-    if not fid:
-
-        print("\n❌ Fingerprint enrollment failed")
 
         logger.log_enrollment(
 
@@ -562,151 +593,107 @@ def auto_enroll(user_name):
 
             step="FINGERPRINT",
 
-            status="FAILED",
+            status="SUCCESS",
 
-            detail="Fingerprint enrollment failed"
+            detail=f"FID={fid}"
         )
 
-        logger.log_error(
-            f"Fingerprint enrollment failed for {name}"
-        )
-
-        return
-
-    # ================= SAVE FINGERPRINT FIRST =================
-    fp_saved = save_fingerprint_user(
-        fid,
-        name
-    )
-
-    if not fp_saved:
-
-        logger.log_enrollment(
-
-            user=name,
-
-            step="SAVE_FINGERPRINT",
-
-            status="FAILED",
-
-            detail="Save fingerprint failed"
-        )
-
-        logger.log_error(
-            f"Save fingerprint failed for {name}"
-        )
-
-        return
-
-    logger.log_fingerprint(
-        fid=fid,
-        user=name,
-        status="ENROLLED"
-    )
-
-    logger.log_enrollment(
-
-        user=name,
-
-        step="FINGERPRINT",
-
-        status="SUCCESS",
-
-        detail=f"FID={fid}"
-    )
-
-    # ================= SAVE RFID SECOND =================
-    rfid_saved = save_rfid_user(
-        rfid_uid,
-        name
-    )
-
-    if not rfid_saved:
-
-        logger.log_enrollment(
-
-            user=name,
-
-            step="SAVE_RFID",
-
-            status="FAILED",
-
-            detail="Save RFID failed"
-        )
-
-        logger.log_error(
-            f"Save RFID failed for {name}"
-        )
-
-        return
-
-    logger.log_rfid(
-        uid=rfid_uid,
-        user=name,
-        status="ENROLLED"
-    )
-
-    logger.log_enrollment(
-
-        user=name,
-
-        step="RFID",
-
-        status="SUCCESS",
-
-        detail=f"UID={rfid_uid}"
-    )
-
-    # ================= MASTER USER =================
-    try:
-
-        add_master_user(
-            name,
+        # ================= SAVE RFID SECOND =================
+        rfid_saved = save_rfid_user(
             rfid_uid,
-            fid
+            name
+        )
+
+        if not rfid_saved:
+
+            logger.log_enrollment(
+
+                user=name,
+
+                step="SAVE_RFID",
+
+                status="FAILED",
+
+                detail="Save RFID failed"
+            )
+
+            logger.log_error(
+                f"Save RFID failed for {name}"
+            )
+
+            return
+
+        logger.log_rfid(
+            uid=rfid_uid,
+            user=name,
+            status="ENROLLED"
+        )
+
+        logger.log_enrollment(
+
+            user=name,
+
+            step="RFID",
+
+            status="SUCCESS",
+
+            detail=f"UID={rfid_uid}"
+        )
+
+        # ================= MASTER USER =================
+        try:
+
+            add_master_user(
+                name,
+                rfid_uid,
+                fid
+            )
+
+            logger.log_system(
+                f"Master user created: {name}"
+            )
+
+        except Exception as e:
+
+            logger.log_error(
+                f"Master user save failed: {e}"
+            )
+
+            print(
+                "\n❌ Master user failed"
+            )
+
+            return
+
+        # ================= FINAL SUCCESS =================
+        logger.log_enrollment(
+
+            user=name,
+
+            step="COMPLETE",
+
+            status="SUCCESS",
+
+            detail="Auto enrollment completed"
         )
 
         logger.log_system(
-            f"Master user created: {name}"
+            f"Auto enrollment completed for {name}"
         )
 
-    except Exception as e:
+        print("\n================================")
+        print("      AUTO ENROLL SUCCESS")
+        print("================================")
 
-        logger.log_error(
-            f"Master user save failed: {e}"
-        )
+        print(f"User : {name}")
+        print(f"RFID : {rfid_uid}")
+        print(f"FID  : {fid}")
 
-        print(
-            "\n❌ Master user failed"
-        )
-
-        return
-
-    # ================= FINAL SUCCESS =================
-    logger.log_enrollment(
-
-        user=name,
-
-        step="COMPLETE",
-
-        status="SUCCESS",
-
-        detail="Auto enrollment completed"
-    )
-
-    logger.log_system(
-        f"Auto enrollment completed for {name}"
-    )
-
-    print("\n================================")
-    print("      AUTO ENROLL SUCCESS")
-    print("================================")
-
-    print(f"User : {name}")
-    print(f"RFID : {rfid_uid}")
-    print(f"FID  : {fid}")
-
-    print("================================")
+        print("================================")
+    
+    finally: 
+        
+        stop_enroll()
 
 
 # ================= ENTRY =================

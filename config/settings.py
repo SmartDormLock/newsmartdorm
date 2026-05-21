@@ -3,3 +3,4 @@ BAUDRATE = 57600
 
 RELAY_PIN = 27
 DOOR_OPEN_TIME = 5  # detik
+

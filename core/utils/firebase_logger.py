@@ -7,6 +7,12 @@ from firebase_admin import (
 
 from datetime import datetime
 
+from config.device_id import (
+
+    DEVICE_ID,
+    BUILDING_ID,
+    ROOM_ID
+)
 
 # ================= INIT =================
 cred = credentials.Certificate(
@@ -20,20 +26,46 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 
+# ================= DEVICE CONTEXT =================
+def get_device_context():
+
+    return {
+
+        "device_id": DEVICE_ID,
+
+        "building": BUILDING_ID,
+
+        "room": ROOM_ID
+    }
+
+
 # ================= ACCESS LOG =================
 def push_access_log(
+
     user_name,
     method,
     status,
+
+    uid="",
+
     detail=""
 ):
 
     data = {
 
+        "uid": uid,
+
         "user_name": user_name,
+
         "method": method,
+
         "status": status,
+
         "detail": detail,
+
+        # ================= DEVICE =================
+        **get_device_context(),
+
         "timestamp": datetime.utcnow()
     }
 
@@ -48,6 +80,10 @@ def push_system_log(message):
     data = {
 
         "message": message,
+
+        # ================= DEVICE =================
+        **get_device_context(),
+
         "timestamp": datetime.utcnow()
     }
 
@@ -62,13 +98,18 @@ def push_error_log(message):
     data = {
 
         "message": message,
+
+        # ================= DEVICE =================
+        **get_device_context(),
+
         "timestamp": datetime.utcnow()
     }
 
     db.collection(
         "error_logs"
     ).add(data)
-    
+
+
 # ================= DOOR STATUS =================
 def update_door_status(
 
@@ -86,7 +127,10 @@ def update_door_status(
 
         data = {
 
+            "device_id": room_id,
+
             "building": building,
+
             "room": room,
 
             "status": status,
@@ -119,6 +163,7 @@ def update_door_status(
             f"[FIREBASE ERROR] {e}"
         )
 
+
 # ================= AUTH STATE =================
 def update_auth_state(
 
@@ -136,23 +181,34 @@ def update_auth_state(
     db.collection(
         "auth_state"
     ).document(
-        "current"
+        DEVICE_ID
     ).set({
 
+        "device_id": DEVICE_ID,
+
+        "building": BUILDING_ID,
+
+        "room": ROOM_ID,
+
         "current_step": current_step,
+
         "status_text": status_text,
 
         "face_attempt": face_attempt,
+
         "fingerprint_attempt": fingerprint_attempt,
+
         "rfid_attempt": rfid_attempt,
 
         "access_granted": access_granted,
+
         "access_denied": access_denied,
 
         "timestamp":
             firestore.SERVER_TIMESTAMP
 
     }, merge=True)
+
 
 # ================= ENROLLMENT LOG =================
 def push_enrollment_log(
@@ -166,9 +222,16 @@ def push_enrollment_log(
     data = {
 
         "user_name": user_name,
+
         "step": step,
+
         "status": status,
+
         "detail": detail,
+
+        # ================= DEVICE =================
+        **get_device_context(),
+
         "timestamp": datetime.utcnow()
     }
 

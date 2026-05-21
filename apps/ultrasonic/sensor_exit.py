@@ -16,17 +16,94 @@ from core.hardware.lcd import (
     lcd_write
 )
 
+from core.utils.firebase_logger import (
+
+    push_access_log,
+
+    update_door_status,
+
+    db
+)
+
+from config.device_id import (
+
+    BUILDING_ID,
+    ROOM_ID
+)
+
+# =========================
+# SYSTEM STATE
+# =========================
+
+import core.system.system_state as system_state
+
+
 # ================= CONFIG =================
 DETECTION_DISTANCE = 15
 COOLDOWN = 5
 
-# ================= GLOBAL STATE =================
-EXIT_ENABLED = True
+
+# ================= GET ROOM OWNER =================
+def get_room_owner():
+
+    try:
+
+        users_ref = db.collection(
+            "users"
+        )
+
+        query = users_ref.where(
+            "building",
+            "==",
+            BUILDING_ID
+        ).where(
+            "room",
+            "==",
+            ROOM_ID
+        ).limit(1)
+
+        docs = query.stream()
+
+        for doc in docs:
+
+            data = doc.to_dict()
+
+            return {
+
+                "uid": data.get(
+                    "uid",
+                    ""
+                ),
+
+                "name": data.get(
+                    "name",
+                    "Unknown"
+                )
+            }
+
+        return {
+
+            "uid": "",
+
+            "name": "Unknown"
+        }
+
+    except Exception as e:
+
+        print(
+            f"[EXIT USER ERROR] {e}"
+        )
+
+        return {
+
+            "uid": "",
+
+            "name": "Unknown"
+        }
+
 
 # ================= LOOP =================
 def inside_exit_loop():
-
-    global EXIT_ENABLED
 
     print("Inside Exit Thread Started")
 
@@ -36,8 +113,26 @@ def inside_exit_loop():
 
         try:
 
-            # ================= PAUSE IF DISABLED =================
-            if not EXIT_ENABLED:
+            # ================= PAUSE IF AUTH RUNNING =================
+            if system_state.AUTH_RUNNING:
+
+                time.sleep(1)
+                continue
+
+            # ================= PAUSE IF ENROLL RUNNING =================
+            if system_state.ENROLL_RUNNING:
+
+                time.sleep(1)
+                continue
+
+            # ================= PAUSE IF DOOR BUSY =================
+            if system_state.DOOR_BUSY:
+
+                time.sleep(1)
+                continue
+
+            # ================= PAUSE IF EXIT DISABLED =================
+            if not system_state.EXIT_ENABLED:
 
                 time.sleep(1)
                 continue
@@ -70,6 +165,66 @@ def inside_exit_loop():
                         "INSIDE EXIT DETECTED"
                     )
 
+                    # ================= GET USER =================
+                    owner_data = get_room_owner()
+
+                    user_uid = owner_data["uid"]
+
+                    user_name = owner_data["name"]
+
+                    print(
+                        f"[EXIT USER] {user_name}"
+                    )
+
+                    # ================= ACCESS LOG =================
+                    try:
+
+                        push_access_log(
+
+                            uid=user_uid,
+
+                            user_name=user_name,
+
+                            method="Inside Exit",
+
+                            status="GRANTED",
+
+                            detail=(
+                                "Exit detected "
+                                "using ultrasonic sensor"
+                            )
+                        )
+
+                        print(
+                            "[EXIT LOG] Access log saved"
+                        )
+
+                    except Exception as log_error:
+
+                        print(
+                            f"[EXIT LOG ERROR] {log_error}"
+                        )
+
+                    # ================= UPDATE DOOR STATUS =================
+                    try:
+
+                        update_door_status(
+
+                            BUILDING_ID,
+
+                            ROOM_ID,
+
+                            "OPEN",
+
+                            user_name
+                        )
+
+                    except Exception as status_error:
+
+                        print(
+                            f"[DOOR STATUS ERROR] {status_error}"
+                        )
+
                     # ================= LCD =================
                     try:
 
@@ -77,7 +232,7 @@ def inside_exit_loop():
 
                             "EXIT DETECTED",
 
-                            "Door Opening",
+                            f"Goodbye {user_name}",
 
                             ""
                         )
@@ -101,6 +256,26 @@ def inside_exit_loop():
 
                     # ================= OPEN DOOR =================
                     open_door()
+
+                    # ================= LOCK STATUS =================
+                    try:
+
+                        update_door_status(
+
+                            BUILDING_ID,
+
+                            ROOM_ID,
+
+                            "LOCKED",
+
+                            user_name
+                        )
+
+                    except Exception as status_error:
+
+                        print(
+                            f"[DOOR STATUS ERROR] {status_error}"
+                        )
 
                     last_open = now
 

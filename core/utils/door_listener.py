@@ -1,7 +1,7 @@
 import time
+import core.system.system_state as system_state
 
 from core.utils.firebase_logger import db
-
 from core.hardware.relay import (
     open_door
 )
