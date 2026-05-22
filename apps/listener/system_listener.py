@@ -2,6 +2,7 @@ import sys
 import time
 import threading
 import core.utils.logger as logger
+
 sys.stdout.reconfigure(encoding="utf-8")
 
 from core.utils.firebase_logger import db
@@ -38,6 +39,17 @@ from core.utils.door_listener import (
     start_door_listener
 )
 
+# =========================
+# PREVIEW CAMERA
+# =========================
+
+from core.camera.preview_stream import (
+    start_preview_server,
+    stop_camera
+)
+
+from core.camera import camera_state
+
 print("\n🚀 SmartDorm Main Listener Started")
 
 # ====================================
@@ -51,16 +63,26 @@ start_door_listener()
 # ====================================
 
 exit_thread = threading.Thread(
-
     target=inside_exit_loop,
     daemon=True
 )
 
 exit_thread.start()
 
-print(
-    "? Inside Exit Thread Started"
+print("🚪 Inside Exit Thread Started")
+
+# ====================================
+# START PREVIEW SERVER
+# ====================================
+
+preview_thread = threading.Thread(
+    target=start_preview_server,
+    daemon=True
 )
+
+preview_thread.start()
+
+print("📷 Preview server started")
 
 logger.log_system(
     "Main listener started"
@@ -124,15 +146,27 @@ while True:
 
                 is_running = True
 
-                print(
-                    "\n🔐 AUTH STARTED"
-                )
+                print("\n🔐 AUTH STARTED")
 
                 logger.log_system(
                     "Authentication started"
                 )
 
                 try:
+
+                    # =========================
+                    # STOP PREVIEW CAMERA
+                    # =========================
+
+                    if camera_state.preview_active:
+
+                        print(
+                            "📷 Preview aktif, stopping camera..."
+                        )
+
+                        stop_camera()
+
+                        time.sleep(2)
 
                     # =========================
                     # RUN AUTH
@@ -150,9 +184,7 @@ while True:
 
                     }, merge=True)
 
-                    print(
-                        "\n✅ AUTH SUCCESS"
-                    )
+                    print("\n✅ AUTH SUCCESS")
 
                     logger.log_system(
                         "Authentication success"
@@ -189,9 +221,7 @@ while True:
 
                 is_running = True
 
-                print(
-                    "\n📝 ENROLLMENT STARTED"
-                )
+                print("\n📝 ENROLLMENT STARTED")
 
                 logger.log_system(
                     "Enrollment started"
@@ -228,6 +258,20 @@ while True:
                     }, merge=True)
 
                     # =========================
+                    # STOP PREVIEW CAMERA
+                    # =========================
+
+                    if camera_state.preview_active:
+
+                        print(
+                            "📷 Preview aktif, stopping camera..."
+                        )
+
+                        stop_camera()
+
+                        time.sleep(2)
+
+                    # =========================
                     # RUN ENROLL
                     # =========================
 
@@ -260,9 +304,7 @@ while True:
 
                     }, merge=True)
 
-                    print(
-                        "\n✅ ENROLL SUCCESS"
-                    )
+                    print("\n✅ ENROLL SUCCESS")
 
                     logger.log_system(
                         f"Enrollment success: {user_name}"

@@ -165,6 +165,8 @@ def start_preview_server():
         port=5000,
 
         threaded=True,
+        
+        use_reloader=False
     )
 
 
