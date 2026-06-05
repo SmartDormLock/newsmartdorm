@@ -43,65 +43,6 @@ DETECTION_DISTANCE = 15
 COOLDOWN = 5
 
 
-# ================= GET ROOM OWNER =================
-def get_room_owner():
-
-    try:
-
-        users_ref = db.collection(
-            "users"
-        )
-
-        query = users_ref.where(
-            "building",
-            "==",
-            BUILDING_ID
-        ).where(
-            "room",
-            "==",
-            ROOM_ID
-        ).limit(1)
-
-        docs = query.stream()
-
-        for doc in docs:
-
-            data = doc.to_dict()
-
-            return {
-
-                "uid": data.get(
-                    "uid",
-                    ""
-                ),
-
-                "name": data.get(
-                    "name",
-                    "Unknown"
-                )
-            }
-
-        return {
-
-            "uid": "",
-
-            "name": "Unknown"
-        }
-
-    except Exception as e:
-
-        print(
-            f"[EXIT USER ERROR] {e}"
-        )
-
-        return {
-
-            "uid": "",
-
-            "name": "Unknown"
-        }
-
-
 # ================= LOOP =================
 def inside_exit_loop():
 
@@ -165,12 +106,10 @@ def inside_exit_loop():
                         "INSIDE EXIT DETECTED"
                     )
 
-                    # ================= GET USER =================
-                    owner_data = get_room_owner()
+                    # ================= EXIT USER =================
+                    user_uid = ""
 
-                    user_uid = owner_data["uid"]
-
-                    user_name = owner_data["name"]
+                    user_name = "Room Occupant"
 
                     print(
                         f"[EXIT USER] {user_name}"
@@ -190,7 +129,7 @@ def inside_exit_loop():
                             status="GRANTED",
 
                             detail=(
-                                "Exit detected "
+                                "Automatic exit detected "
                                 "using ultrasonic sensor"
                             )
                         )
@@ -232,7 +171,63 @@ def inside_exit_loop():
 
                             "EXIT DETECTED",
 
-                            f"Goodbye {user_name}",
+                            "Door Opening",
+
+                            ""
+                        )
+
+                    except Exception as lcd_error:
+
+                        print(
+                            f"[LCD ERROR] {lcd_error}"
+                        )
+
+                    # ================= BEEP =================
+                    try:
+
+                        success_beep()
+
+                    except Exception as beep_error:
+
+                        print(
+                            f"[BUZZER ERROR] {beep_error}"
+                        )
+
+                    # ================= OPEN DOOR =================
+                    open_door()
+
+                    # ================= LOCK STATUS =================
+                    try:
+
+                        update_door_status(
+
+                            BUILDING_ID,
+
+                            ROOM_ID,
+
+                            "LOCKED",
+
+                            user_name
+                        )
+
+                    except Exception as status_error:
+
+                        print(
+                            f"[DOOR STATUS ERROR] {status_error}"
+                        )
+
+                    last_open = now
+
+                    # ================= LCD RESET =================
+                    time.sleep(1)
+
+                    try:
+
+                        lcd_write(
+
+                            "SYSTEM READY",
+
+                            "",
 
                             ""
                         )
